@@ -1,3 +1,9 @@
+export type Theme = 'light' | 'dark';
+
+export interface SearchSource {
+  uri: string;
+  title: string;
+}
 
 export interface AnalysisInput {
   country: string;
@@ -11,16 +17,10 @@ export interface AnalysisInput {
 
 export interface Post {
   id: string;
-  source: 'X/Twitter' | 'Google News';
-  author: string;
-  authorHandle: string;
-  content: string;
-  timestamp: string;
-  engagement: {
-    likes: number;
-    retweets: number;
-    replies: number;
-  };
+  source: 'Web Article' | 'Social Media Post' | 'News Report' | 'Twitter';
+  author: string; // publication or user
+  content: string; // summary of content
+  timestamp: string; // estimated date
   imageUrl?: string;
   link: string;
 }
@@ -57,4 +57,5 @@ export interface Narrative {
   originReport?: OriginReport;
   counterOpportunities?: CounterOpportunity[];
   trendData?: { date: string; volume: number }[];
+  posts?: Post[]; // Added to hold the raw posts for the new tab
 }

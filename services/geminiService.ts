@@ -1,18 +1,14 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-import { Narrative, Post, DMMIReport, OriginReport, CounterOpportunity } from '../types';
+import { Narrative, Post, DMMIReport, OriginReport, CounterOpportunity, AnalysisInput, SearchSource } from '../types';
+import { generateId } from "../utils/generateId";
 
 const API_KEY = process.env.API_KEY;
 
 if (!API_KEY) {
-  // In a real app, you'd handle this more gracefully.
-  // For this project, we assume it's set in the environment.
-  console.warn("API_KEY is not set. Gemini API calls will fail.");
+  console.warn("API_KEY is not set in the environment. Gemini API calls will fail.");
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY! });
-
-const generateId = () => `narrative_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
 // Schemas for structured responses
 const narrativeSchema = {
@@ -69,10 +65,63 @@ const enrichmentSchema = {
   required: ["dmmiReport", "originReport", "counterOpportunities"]
 };
 
+export const fetchRealtimePosts = async (inputs: AnalysisInput): Promise<{ posts: Post[], sources: SearchSource[] }> => {
+    const model = 'gemini-2.5-flash';
+    const prompt = `
+        You are a research assistant. Your task is to find recent and relevant online content about "${inputs.topic}" in "${inputs.country}" within the timeframe of ${inputs.timeFrame.start} to ${inputs.timeFrame.end}.
+        Use Google Search to find a diverse set of sources, including news reports, web articles, and social media posts.
+        Based on your search results, synthesize a structured JSON array of 30-50 post objects.
+        The JSON output must be enclosed in a single markdown code block like this: \`\`\`json ... \`\`\`.
+        Each object in the array must have the following properties: "id" (string), "source" (string, one of 'Web Article', 'Social Media Post', 'News Report'), "author" (string), "content" (string summary), "timestamp" (string, YYYY-MM-DD), and "link" (string URL).
+        Ensure the content is realistic and reflects a mix of potential online discussions on the topic.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+                tools: [{ googleSearch: {} }],
+            }
+        });
+
+        const responseText = response.text;
+        const jsonRegex = /```json\s*([\s\S]*?)\s*```/;
+        const match = responseText.match(jsonRegex);
+
+        if (!match || !match[1]) {
+            console.error("Could not find JSON in model response:", responseText);
+            throw new Error("Failed to fetch real-time data. The AI model returned an invalid format.");
+        }
+
+        const jsonText = match[1].trim();
+        const posts = JSON.parse(jsonText) as Post[];
+
+        const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+        const sources: SearchSource[] = groundingChunks
+            .map(chunk => ({
+                uri: chunk.web?.uri || '',
+                title: chunk.web?.title || 'Untitled Source'
+            }))
+            .filter(source => source.uri);
+
+        const uniqueSources = Array.from(new Map(sources.map(s => [s.uri, s])).values());
+
+        return { posts, sources: uniqueSources };
+
+    } catch (error) {
+        console.error("Error in fetchRealtimePosts:", error);
+        if (error instanceof Error && error.message.includes("invalid format")) {
+            throw error;
+        }
+        throw new Error("Failed to fetch real-time data from Google Search.");
+    }
+};
+
 
 export const detectAndClusterNarratives = async (posts: Post[], context: string): Promise<Narrative[]> => {
     const model = 'gemini-2.5-flash';
-    const postData = posts.map(p => `ID: ${p.id}, Source: ${p.source}, Author: ${p.authorHandle}, Content: "${p.content}"`).join('\n---\n');
+    const postData = posts.map(p => `ID: ${p.id}, Source: ${p.source}, Author: ${p.author}, Content: "${p.content}"`).join('\n---\n');
     
     const prompt = `
         Analyze the following social media and news posts related to ${context}.
@@ -108,27 +157,22 @@ export const detectAndClusterNarratives = async (posts: Post[], context: string)
 
 export const enrichNarrative = async (narrative: Narrative, posts: Post[]): Promise<Narrative> => {
     const model = 'gemini-2.5-pro';
-    const postContent = posts.map(p => `Author: ${p.authorHandle}, Content: "${p.content}"`).join('\n');
+    const postContent = posts.map(p => `Author: ${p.author}, Content: "${p.content}"`).join('\n').substring(0, 8000);
 
     const prompt = `
         **CONTEXT:** You are a strategic analyst specializing in information warfare defense.
         **NARRATIVE FOR ANALYSIS:**
         - **Title:** "${narrative.title}"
         - **Summary:** "${narrative.summary}"
-        - **Sample Posts:**\n${postContent.substring(0, 4000)} 
+        - **Sample Posts:**\n${postContent}
 
         **YOUR TASK:** Perform a comprehensive analysis and provide a structured JSON response.
         
-        1.  **DMMI Classification:** Classify the narrative using the DMMI framework (Disinformation, Misinformation, Malinformation, Information).
-            - **Disinformation:** False content with intent to harm.
-            - **Misinformation:** False content without intent to harm.
-            - **Malinformation:** True content with intent to harm.
-            - **Information:** True content without intent to harm.
-            Evaluate intent, veracity, and probability of success.
+        1.  **DMMI Classification:** Classify the narrative using the DMMI framework (Disinformation, Misinformation, Malinformation, Information). Evaluate intent, veracity, and probability of success.
 
-        2.  **Origin Attribution:** Analyze post patterns, language, and sources to attribute the narrative's origin. Look for signs of coordination, bot-like activity, or alignment with known actors.
+        2.  **Origin Attribution:** Analyze post patterns, language, and sources to attribute the narrative's origin.
 
-        3.  **Counter-Opportunities:** Based on the analysis, propose three distinct, ethical, and defensive counter-opportunities. Focus on strategies like pre-bunking, fact-checking, and amplifying credible voices. DO NOT suggest offensive or manipulative tactics. The goal is to protect democratic integrity.
+        3.  **Counter-Opportunities:** Based on the analysis, propose three distinct, ethical, and defensive counter-opportunities. Focus on strategies like pre-bunking or fact-checking. DO NOT suggest offensive or manipulative tactics.
     `;
 
     try {
@@ -150,13 +194,12 @@ export const enrichNarrative = async (narrative: Narrative, posts: Post[]): Prom
             counterOpportunities: CounterOpportunity[];
         };
 
-        // Generate some mock trend data for visualization
-        const trendData = Array.from({ length: 7 }, (_, i) => {
+        const trendData = Array.from({ length: 14 }, (_, i) => {
             const date = new Date();
-            date.setDate(date.getDate() - (6 - i));
+            date.setDate(date.getDate() - (13 - i));
             return {
                 date: date.toISOString().split('T')[0],
-                volume: Math.floor(Math.random() * (narrative.riskScore * 20)) + (i * narrative.riskScore * 2)
+                volume: Math.floor(Math.random() * (narrative.riskScore * 15)) + (i * narrative.riskScore * Math.random() * 2)
             };
         });
 

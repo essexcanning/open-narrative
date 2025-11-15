@@ -1,108 +1,144 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
 import { WelcomeModal } from './components/WelcomeModal';
-import { AnalysisInput, Narrative } from './types';
-import { mockFetchPosts } from './services/dataService';
-import { detectAndClusterNarratives, enrichNarrative } from './services/geminiService';
-import { LoadingSpinner } from './components/icons/GeneralIcons';
+import { AnalysisInput, Narrative, Post, SearchSource, Theme } from './types';
+import { fetchRealtimePosts, detectAndClusterNarratives, enrichNarrative } from './services/geminiService';
+import { fetchTwitterPosts } from './services/twitterService';
+import { Header } from './components/Header';
+import { Toast, ToastData } from './components/Toast';
+import { generateId } from './utils/generateId';
 
 const App: React.FC = () => {
   const [narratives, setNarratives] = useState<Narrative[]>([]);
+  const [sources, setSources] = useState<SearchSource[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [loadingMessage, setLoadingMessage] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
+  const [analysisPhase, setAnalysisPhase] = useState<'fetching' | 'clustering' | 'enriching' | null>(null);
+  const [toasts, setToasts] = useState<ToastData[]>([]);
   const [showWelcome, setShowWelcome] = useState<boolean>(true);
+  const [theme, setTheme] = useState<Theme>('dark');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  
+  useEffect(() => {
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(theme);
+  }, [theme]);
+
+  const addToast = useCallback((toast: Omit<ToastData, 'id'>) => {
+    setToasts(currentToasts => [...currentToasts, { ...toast, id: generateId() }]);
+  }, []);
 
   const handleAnalysis = useCallback(async (inputs: AnalysisInput) => {
     setIsLoading(true);
-    setError(null);
+    setAnalysisPhase('fetching');
     setNarratives([]);
+    setSources([]);
+    addToast({ type: 'info', message: 'Starting analysis... Fetching real-time data.' });
 
     try {
-      setLoadingMessage('Fetching and analyzing source data...');
-      const posts = mockFetchPosts(inputs);
+      const dataPromises: Promise<{ posts: Post[], sources: SearchSource[] }>[] = [];
 
-      setLoadingMessage('Detecting and clustering narratives...');
-      const initialNarratives = await detectAndClusterNarratives(posts, ` narratives about ${inputs.topic} in ${inputs.country}`);
-      
-      if (!initialNarratives || initialNarratives.length === 0) {
-        throw new Error("No narratives were detected from the provided data.");
+      if (inputs.sources.includes('Google News / Search')) {
+        dataPromises.push(fetchRealtimePosts(inputs));
       }
-      
-      setNarratives(initialNarratives.map(n => ({ ...n, status: 'pending' })));
+      if (inputs.sources.includes('X / Twitter')) {
+        dataPromises.push(fetchTwitterPosts(inputs));
+      }
 
-      setLoadingMessage('Enriching narratives with DMMI analysis and counter-opportunities...');
-
-      const enrichedNarrativePromises = initialNarratives.map(narrative =>
-        enrichNarrative(narrative, posts.filter(p => narrative.postIds.includes(p.id)))
-          .then(enriched => {
-            setNarratives(prev => prev.map(n => n.id === enriched.id ? { ...enriched, status: 'complete' } : n));
-            return enriched;
-          })
-          .catch(err => {
-            console.error(`Failed to enrich narrative ${narrative.id}:`, err);
-            setNarratives(prev => prev.map(n => n.id === narrative.id ? { ...n, status: 'error' } : n));
-            return null;
-          })
-      );
+      const results = await Promise.allSettled(dataPromises);
       
-      await Promise.all(enrichedNarrativePromises);
+      let combinedPosts: Post[] = [];
+      let combinedSources: SearchSource[] = [];
+      
+      results.forEach(result => {
+        if (result.status === 'fulfilled') {
+          combinedPosts.push(...result.value.posts);
+          combinedSources.push(...result.value.sources);
+        } else {
+          console.error(`Failed to fetch from a source:`, result.reason);
+          addToast({ type: 'error', message: 'Failed to fetch data from a source.' });
+        }
+      });
+      
+      const uniqueSources = Array.from(new Map(combinedSources.map(s => [s.uri, s])).values());
+      setSources(uniqueSources);
+
+      if (combinedPosts.length === 0) {
+        addToast({ type: 'warning', message: 'No relevant posts found for the given criteria.' });
+        setNarratives([]);
+      } else {
+        setAnalysisPhase('clustering');
+        addToast({ type: 'info', message: `Found ${combinedPosts.length} posts. Clustering narratives...` });
+        const initialNarratives = await detectAndClusterNarratives(combinedPosts, `narratives about ${inputs.topic} in ${inputs.country}`);
+        
+        if (!initialNarratives || initialNarratives.length === 0) {
+          addToast({ type: 'warning', message: 'Could not detect distinct narratives.' });
+          setNarratives([]);
+        } else {
+          setNarratives(initialNarratives.map(n => ({ ...n, status: 'pending', posts: combinedPosts.filter(p => n.postIds.includes(p.id)) })));
+          
+          setAnalysisPhase('enriching');
+          addToast({ type: 'info', message: `Detected ${initialNarratives.length} narratives. Starting deep analysis...` });
+
+          const enrichmentPromises = initialNarratives.map(narrative => {
+             const narrativePosts = combinedPosts.filter(p => narrative.postIds.includes(p.id));
+             return enrichNarrative(narrative, narrativePosts)
+              .then(enriched => {
+                setNarratives(prev => prev.map(n => n.id === enriched.id ? { ...enriched, posts: narrativePosts, status: 'complete' } : n));
+                return enriched;
+              })
+              .catch(err => {
+                console.error(`Failed to enrich narrative ${narrative.id}:`, err);
+                setNarratives(prev => prev.map(n => n.id === narrative.id ? { ...n, status: 'error' } : n));
+                addToast({type: 'error', message: `Analysis failed for narrative: "${narrative.title.substring(0, 20)}..."`})
+                return null;
+              });
+          });
+          
+          await Promise.all(enrichmentPromises);
+          addToast({ type: 'success', message: 'Analysis complete.' });
+        }
+      }
 
     } catch (err) {
       console.error('Analysis failed:', err);
-      setError(err instanceof Error ? err.message : 'An unknown error occurred during analysis.');
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+      addToast({ type: 'error', message: `Analysis failed: ${errorMessage}` });
     } finally {
       setIsLoading(false);
-      setLoadingMessage('');
+      setAnalysisPhase(null);
     }
-  }, []);
+  }, [addToast]);
   
   const handleWelcomeAcknowledge = () => {
     setShowWelcome(false);
   };
 
+  const removeToast = (id: string) => {
+    setToasts(currentToasts => currentToasts.filter(toast => toast.id !== id));
+  };
+
   return (
     <>
+      <div className={`fixed inset-x-0 top-0 z-50 p-4 flex flex-col items-end space-y-2 pointer-events-none`}>
+        {toasts.map(toast => (
+          <Toast key={toast.id} data={toast} onClose={() => removeToast(toast.id)} />
+        ))}
+      </div>
       {showWelcome && <WelcomeModal onAcknowledge={handleWelcomeAcknowledge} />}
-      <div className={`flex h-screen bg-gray-900 text-gray-100 font-sans ${showWelcome ? 'blur-sm' : ''}`}>
-        <Sidebar onAnalyze={handleAnalysis} isLoading={isLoading} />
-        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
-          <header className="mb-6">
-            <h1 className="text-3xl font-bold text-cyan-400">Narrative Sentinel</h1>
-            <p className="text-gray-400 mt-1">Monitoring and countering information operations with AI.</p>
-          </header>
-          
-          {isLoading && (
-            <div className="flex flex-col items-center justify-center h-full">
-              <LoadingSpinner className="h-16 w-16 text-cyan-500" />
-              <p className="mt-4 text-lg text-gray-300">{loadingMessage}</p>
-            </div>
-          )}
-          
-          {error && (
-            <div className="flex items-center justify-center h-full">
-              <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-lg" role="alert">
-                <strong className="font-bold">Analysis Failed: </strong>
-                <span className="block sm:inline">{error}</span>
-              </div>
-            </div>
-          )}
-
-          {!isLoading && !error && narratives.length === 0 && (
-            <div className="flex items-center justify-center h-full text-center">
-                <div className="bg-gray-800 p-8 rounded-lg shadow-2xl border border-gray-700">
-                    <h2 className="text-2xl font-semibold text-gray-200">Welcome to the Dashboard</h2>
-                    <p className="mt-2 text-gray-400">Use the sidebar to begin your analysis.</p>
-                </div>
-            </div>
-          )}
-
-          {!isLoading && narratives.length > 0 && (
-            <Dashboard narratives={narratives} />
-          )}
-        </main>
+      <div className={`flex h-screen bg-background text-text-primary font-sans transition-all duration-300 ${showWelcome ? 'blur-md' : ''}`}>
+        <Sidebar onAnalyze={handleAnalysis} isLoading={isLoading} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} theme={theme} setTheme={setTheme} />
+          <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto bg-background-secondary">
+            <Dashboard 
+              narratives={narratives} 
+              sources={sources} 
+              isLoading={isLoading} 
+              analysisPhase={analysisPhase}
+            />
+          </main>
+        </div>
       </div>
     </>
   );

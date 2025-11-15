@@ -1,23 +1,27 @@
-
 import React, { useState } from 'react';
-import { Narrative } from '../types';
+import { Narrative, SearchSource } from '../types';
 import { NarrativeCard } from './NarrativeCard';
-import { SortAscendingIcon, SortDescendingIcon } from './icons/GeneralIcons';
+import { SourcesUsed } from './SourcesUsed';
+import { SortAscendingIcon, SortDescendingIcon, SparklesIcon } from './icons/GeneralIcons';
+import { NarrativeCardSkeleton } from './NarrativeCardSkeleton';
+import clsx from 'clsx';
 
 interface DashboardProps {
   narratives: Narrative[];
+  sources: SearchSource[];
+  isLoading: boolean;
+  analysisPhase: 'fetching' | 'clustering' | 'enriching' | null;
 }
 
 type SortKey = 'riskScore' | 'title';
 type SortDirection = 'asc' | 'desc';
 
-export const Dashboard: React.FC<DashboardProps> = ({ narratives }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ narratives, sources, isLoading, analysisPhase }) => {
     const [sortKey, setSortKey] = useState<SortKey>('riskScore');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
     const sortedNarratives = [...narratives].sort((a, b) => {
         let aValue: string | number, bValue: string | number;
-
         if (sortKey === 'riskScore') {
             aValue = a.riskScore || 0;
             bValue = b.riskScore || 0;
@@ -25,7 +29,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ narratives }) => {
             aValue = a.title || '';
             bValue = b.title || '';
         }
-
         if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
         if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
         return 0;
@@ -41,34 +44,76 @@ export const Dashboard: React.FC<DashboardProps> = ({ narratives }) => {
     };
 
     const SortIcon = sortDirection === 'asc' ? SortAscendingIcon : SortDescendingIcon;
+    const hasResults = narratives.length > 0 || sources.length > 0;
 
-    return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center bg-gray-800/50 p-3 rounded-lg border border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-200">{narratives.length} Narratives Detected</h3>
-                <div className="flex items-center space-x-4 text-sm">
-                    <span className="text-gray-400">Sort by:</span>
-                    <button
-                        onClick={() => handleSort('riskScore')}
-                        className={`flex items-center space-x-1 p-1 rounded ${sortKey === 'riskScore' ? 'text-cyan-400' : 'text-gray-300 hover:text-white'}`}
-                    >
-                        <span>Risk</span>
-                        {sortKey === 'riskScore' && <SortIcon className="h-4 w-4" />}
-                    </button>
-                    <button
-                        onClick={() => handleSort('title')}
-                        className={`flex items-center space-x-1 p-1 rounded ${sortKey === 'title' ? 'text-cyan-400' : 'text-gray-300 hover:text-white'}`}
-                    >
-                        <span>Title</span>
-                        {sortKey === 'title' && <SortIcon className="h-4 w-4" />}
-                    </button>
+    const renderContent = () => {
+        if (isLoading) {
+            const skeletonCount = analysisPhase === 'enriching' ? narratives.length : 6;
+            return (
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {Array.from({ length: skeletonCount }).map((_, i) => (
+                        <NarrativeCardSkeleton key={i} />
+                    ))}
                 </div>
+            );
+        }
+
+        if (!hasResults) {
+            return (
+                 <div className="flex items-center justify-center h-full text-center">
+                    <div className="max-w-md">
+                        <SparklesIcon className="mx-auto h-12 w-12 text-primary" />
+                        <h2 className="mt-4 text-2xl font-semibold text-text-primary">Monitor the Information Environment</h2>
+                        <p className="mt-2 text-text-secondary">Select a country and topic in the sidebar to begin your analysis and uncover emerging narratives in real-time.</p>
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div className="space-y-6">
+                <SourcesUsed sources={sources} />
+                {narratives.length > 0 ? (
+                    <>
+                        <div className="flex justify-between items-center bg-background p-3 rounded-lg border border-border">
+                            <h3 className="text-lg font-semibold text-text-primary">{narratives.length} Narratives Detected</h3>
+                            <div className="flex items-center space-x-4 text-sm">
+                                <span className="text-text-secondary hidden sm:inline">Sort by:</span>
+                                <button
+                                    onClick={() => handleSort('riskScore')}
+                                    className={clsx('flex items-center space-x-1 p-1 rounded font-medium', sortKey === 'riskScore' ? 'text-primary' : 'text-text-secondary hover:text-text-primary')}
+                                >
+                                    <span>Risk</span>
+                                    {sortKey === 'riskScore' && <SortIcon className="h-4 w-4" />}
+                                </button>
+                                <button
+                                    onClick={() => handleSort('title')}
+                                    className={clsx('flex items-center space-x-1 p-1 rounded font-medium', sortKey === 'title' ? 'text-primary' : 'text-text-secondary hover:text-text-primary')}
+                                >
+                                    <span>Title</span>
+                                    {sortKey === 'title' && <SortIcon className="h-4 w-4" />}
+                                </button>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                            {sortedNarratives.map(narrative => (
+                                <NarrativeCard key={narrative.id} narrative={narrative} />
+                            ))}
+                        </div>
+                    </>
+                ) : (
+                    <div className="text-center text-text-secondary bg-background p-8 rounded-lg border border-border">
+                        <h3 className="text-xl font-semibold text-text-primary">Analysis Complete</h3>
+                        <p className="mt-2">No distinct narratives were detected. Try broadening your topic or time frame.</p>
+                    </div>
+                )}
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                {sortedNarratives.map(narrative => (
-                    <NarrativeCard key={narrative.id} narrative={narrative} />
-                ))}
-            </div>
-        </div>
+        );
+    };
+    
+    return (
+       <div className="h-full">
+            {renderContent()}
+       </div>
     );
 };
