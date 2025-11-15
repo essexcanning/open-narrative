@@ -2,13 +2,20 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
 import { WelcomeModal } from './components/WelcomeModal';
-import { AnalysisInput, Narrative, Post, SearchSource, Theme, Page, TaskforceItem, AnalysisStep } from './types';
+import { AnalysisInput, Narrative, Post, SearchSource, Theme, Page, TaskforceItem, AnalysisStep, User } from './types';
 import { fetchRealtimePosts, detectAndClusterNarratives, enrichNarrative, generateTaskforceBrief } from './services/geminiService';
 import { fetchTwitterPosts } from './services/twitterService';
 import { Header } from './components/Header';
 import { Toast, ToastData } from './components/Toast';
 import { generateId } from './utils/generateId';
 import { TaskforceDashboard } from './components/TaskforceDashboard';
+import { LoginModal } from './components/LoginModal';
+
+const mockUsers: User[] = [
+    { id: 'u1', name: 'Alex Johnson', initials: 'AJ' },
+    { id: 'u2', name: 'Ben Carter', initials: 'BC' },
+    { id: 'u3', name: 'Casey Diaz', initials: 'CD' },
+];
 
 const App: React.FC = () => {
   const [narratives, setNarratives] = useState<Narrative[]>([]);
@@ -22,6 +29,7 @@ const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [taskforceItems, setTaskforceItems] = useState<TaskforceItem[]>([]);
   const [analysisSteps, setAnalysisSteps] = useState<AnalysisStep[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   useEffect(() => {
     document.documentElement.classList.remove('light', 'dark');
@@ -162,6 +170,21 @@ const App: React.FC = () => {
     }
   }, [addToast]);
   
+  const handleLogin = (user: User) => {
+    setCurrentUser(user);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    // Reset app state for a clean slate
+    setNarratives([]);
+    setSources([]);
+    setTaskforceItems([]);
+    setAnalysisSteps([]);
+    setCurrentPage('dashboard');
+    setShowWelcome(true);
+  };
+
   const handleWelcomeAcknowledge = () => {
     setShowWelcome(false);
   };
@@ -169,6 +192,10 @@ const App: React.FC = () => {
   const removeToast = (id: string) => {
     setToasts(currentToasts => currentToasts.filter(toast => toast.id !== id));
   };
+  
+  if (!currentUser) {
+    return <LoginModal users={mockUsers} onLogin={handleLogin} />;
+  }
 
   return (
     <>
@@ -181,7 +208,7 @@ const App: React.FC = () => {
       <div className={`flex h-screen bg-background text-text-primary font-sans transition-all duration-300 ${showWelcome ? 'blur-md' : ''}`}>
         <Sidebar onAnalyze={handleAnalysis} isLoading={isLoading} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} currentPage={currentPage} setCurrentPage={setCurrentPage} />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} theme={theme} setTheme={setTheme} />
+          <Header isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} theme={theme} setTheme={setTheme} currentUser={currentUser} onLogout={handleLogout} />
           <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto bg-background">
             {currentPage === 'dashboard' ? (
               <Dashboard 

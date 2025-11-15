@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Theme } from '../types';
-import { SunIcon, MoonIcon, MenuIcon, XIcon, ChevronLeftIcon } from './icons/GeneralIcons';
+import React, { useState, useEffect, useRef } from 'react';
+import { Theme, User } from '../types';
+import { SunIcon, MoonIcon, MenuIcon, ChevronLeftIcon, LogoutIcon } from './icons/GeneralIcons';
 import clsx from 'clsx';
 
 interface HeaderProps {
@@ -8,14 +8,29 @@ interface HeaderProps {
     setIsSidebarOpen: (isOpen: boolean) => void;
     theme: Theme;
     setTheme: (theme: Theme) => void;
+    currentUser: User | null;
+    onLogout: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ isSidebarOpen, setIsSidebarOpen, theme, setTheme }) => {
+export const Header: React.FC<HeaderProps> = ({ isSidebarOpen, setIsSidebarOpen, theme, setTheme, currentUser, onLogout }) => {
     const [currentTime, setCurrentTime] = useState(new Date());
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000 * 60); // Update every minute
-        return () => clearInterval(timer);
+        
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsDropdownOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            clearInterval(timer);
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
     }, []);
 
     const toggleTheme = () => {
@@ -50,8 +65,27 @@ export const Header: React.FC<HeaderProps> = ({ isSidebarOpen, setIsSidebarOpen,
                 >
                     {theme === 'light' ? <MoonIcon className="h-5 w-5" /> : <SunIcon className="h-5 w-5" />}
                 </button>
-                <div className="w-8 h-8 rounded-full bg-background-hover border border-border flex items-center justify-center text-sm font-semibold text-text-secondary">
-                    A
+                <div className="relative" ref={dropdownRef}>
+                    <button 
+                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                        className="w-8 h-8 rounded-full bg-background-hover border border-border flex items-center justify-center text-sm font-semibold text-text-secondary hover:ring-2 hover:ring-primary/50 transition-all"
+                    >
+                        {currentUser?.initials || '??'}
+                    </button>
+                    {isDropdownOpen && (
+                        <div className="absolute right-0 mt-2 w-48 bg-background-card rounded-md shadow-lg border border-border z-10 animate-fade-in-up" style={{animationDuration: '0.2s'}}>
+                            <div className="p-2 border-b border-border">
+                                <p className="text-sm font-semibold text-text-primary">{currentUser?.name}</p>
+                                <p className="text-xs text-text-secondary">Analyst</p>
+                            </div>
+                            <div className="p-1">
+                                <button onClick={onLogout} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-text-secondary hover:bg-background-hover hover:text-text-primary rounded-md transition-colors">
+                                    <LogoutIcon className="h-5 w-5"/>
+                                    <span>Log Out</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </header>

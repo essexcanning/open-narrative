@@ -1,7 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Narrative, Post, DMMIReport, DisarmAnalysis, CounterOpportunity, AnalysisInput, SearchSource } from '../types';
 import { generateId } from "../utils/generateId";
-import { urlToBase64 } from "../utils/mediaUtils";
 
 const API_KEY = process.env.API_KEY;
 
@@ -113,30 +112,6 @@ const enrichmentSchema = {
   required: ["dmmiReport", "disarmAnalysis", "counterOpportunities"]
 };
 
-export const analyzeImageContent = async (base64Data: string, mimeType: string): Promise<string> => {
-    const model = 'gemini-2.5-flash';
-    const prompt = "You are an expert in visual intelligence. Analyze this image and provide a concise, factual description of what it depicts. Focus on key subjects, actions, and any visible text or symbols. This description will be used to understand its role in an online narrative.";
-
-    try {
-        const imagePart = {
-            inlineData: {
-                mimeType,
-                data: base64Data,
-            },
-        };
-        const textPart = { text: prompt };
-        const response = await ai.models.generateContent({
-            model,
-            contents: { parts: [imagePart, textPart] },
-        });
-        return response.text;
-    } catch (error) {
-        console.error("Error in analyzeImageContent:", error);
-        return ""; // Return empty string on failure
-    }
-};
-
-
 export const fetchRealtimePosts = async (inputs: AnalysisInput): Promise<{ posts: Post[], sources: SearchSource[] }> => {
     const model = 'gemini-flash-lite-latest';
     const prompt = `
@@ -235,24 +210,18 @@ export const detectAndClusterNarratives = async (posts: Post[], context: string)
 export const enrichNarrative = async (narrative: Narrative, posts: Post[]): Promise<Narrative> => {
     const model = 'gemini-2.5-pro';
     
-    const postsWithMediaAnalysis = await Promise.all(
-        posts.map(async (post) => {
-            if (post.imageUrl) {
-                const imageData = await urlToBase64(post.imageUrl);
-                if (imageData) {
-                    const description = await analyzeImageContent(imageData.base64, imageData.mimeType);
-                    if (description) {
-                        return { ...post, content: `${post.content}\n\n[Image Analysis: ${description}]` };
-                    }
-                }
-            } else if (post.videoUrl) {
-                return { ...post, content: `${post.content}\n\n[Video Content Present]` };
-            }
-            return post;
-        })
-    );
+    // Simplified media handling to be more robust without a backend proxy for images.
+    // Instead of fetching images (which fails due to CORS), just note their presence.
+    const postsWithMediaNotes = posts.map((post) => {
+        if (post.imageUrl) {
+            return { ...post, content: `${post.content}\n\n[Image Content Present]` };
+        } else if (post.videoUrl) {
+            return { ...post, content: `${post.content}\n\n[Video Content Present]` };
+        }
+        return post;
+    });
 
-    const postContent = postsWithMediaAnalysis.map(p => `Author: ${p.author}, Content: "${p.content}"`).join('\n').substring(0, 8000);
+    const postContent = postsWithMediaNotes.map(p => `Author: ${p.author}, Content: "${p.content}"`).join('\n').substring(0, 8000);
 
     const prompt = `
         **CONTEXT:** You are an expert analyst in information warfare defense, specializing in both the DMMI and DISARM frameworks.
@@ -297,7 +266,7 @@ export const enrichNarrative = async (narrative: Narrative, posts: Post[]): Prom
             };
         });
 
-        return { ...narrative, ...enrichmentData, posts: postsWithMediaAnalysis, trendData, status: 'complete' };
+        return { ...narrative, ...enrichmentData, posts: postsWithMediaNotes, trendData, status: 'complete' };
 
     } catch (error) {
         console.error(`Error enriching narrative "${narrative.title}":`, error);

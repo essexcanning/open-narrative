@@ -1,6 +1,12 @@
 export type Theme = 'light' | 'dark';
 export type Page = 'dashboard' | 'taskforce';
 
+export interface User {
+  id: string;
+  name: string;
+  initials: string;
+}
+
 export interface SearchSource {
   uri: string;
   title: string;
