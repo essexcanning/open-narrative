@@ -2,12 +2,13 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
 import { WelcomeModal } from './components/WelcomeModal';
-import { AnalysisInput, Narrative, Post, SearchSource, Theme } from './types';
-import { fetchRealtimePosts, detectAndClusterNarratives, enrichNarrative } from './services/geminiService';
+import { AnalysisInput, Narrative, Post, SearchSource, Theme, Page, TaskforceItem } from './types';
+import { fetchRealtimePosts, detectAndClusterNarratives, enrichNarrative, generateTaskforceBrief } from './services/geminiService';
 import { fetchTwitterPosts } from './services/twitterService';
 import { Header } from './components/Header';
 import { Toast, ToastData } from './components/Toast';
 import { generateId } from './utils/generateId';
+import { TaskforceDashboard } from './components/TaskforceDashboard';
 
 const App: React.FC = () => {
   const [narratives, setNarratives] = useState<Narrative[]>([]);
@@ -18,6 +19,8 @@ const App: React.FC = () => {
   const [showWelcome, setShowWelcome] = useState<boolean>(true);
   const [theme, setTheme] = useState<Theme>('dark');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const [taskforceItems, setTaskforceItems] = useState<TaskforceItem[]>([]);
   
   useEffect(() => {
     document.documentElement.classList.remove('light', 'dark');
@@ -31,6 +34,7 @@ const App: React.FC = () => {
   const handleAnalysis = useCallback(async (inputs: AnalysisInput) => {
     setIsLoading(true);
     setAnalysisPhase('fetching');
+    setCurrentPage('dashboard');
     setNarratives([]);
     setSources([]);
     addToast({ type: 'info', message: 'Starting analysis... Fetching real-time data.' });
@@ -75,16 +79,20 @@ const App: React.FC = () => {
           addToast({ type: 'warning', message: 'Could not detect distinct narratives.' });
           setNarratives([]);
         } else {
-          setNarratives(initialNarratives.map(n => ({ ...n, status: 'pending', posts: combinedPosts.filter(p => n.postIds.includes(p.id)) })));
+          const narrativesWithPosts = initialNarratives.map(n => ({ 
+            ...n, 
+            status: 'pending' as const, 
+            posts: combinedPosts.filter(p => n.postIds.includes(p.id)) 
+          }));
+          setNarratives(narrativesWithPosts);
           
           setAnalysisPhase('enriching');
           addToast({ type: 'info', message: `Detected ${initialNarratives.length} narratives. Starting deep analysis...` });
 
-          const enrichmentPromises = initialNarratives.map(narrative => {
-             const narrativePosts = combinedPosts.filter(p => narrative.postIds.includes(p.id));
-             return enrichNarrative(narrative, narrativePosts)
+          const enrichmentPromises = narrativesWithPosts.map(narrative => {
+             return enrichNarrative(narrative, narrative.posts)
               .then(enriched => {
-                setNarratives(prev => prev.map(n => n.id === enriched.id ? { ...enriched, posts: narrativePosts, status: 'complete' } : n));
+                setNarratives(prev => prev.map(n => n.id === enriched.id ? { ...enriched, posts: narrative.posts, status: 'complete' } : n));
                 return enriched;
               })
               .catch(err => {
@@ -109,6 +117,24 @@ const App: React.FC = () => {
       setAnalysisPhase(null);
     }
   }, [addToast]);
+
+  const handleAssignToTaskforce = useCallback(async (narrative: Narrative) => {
+    addToast({ type: 'info', message: `Assigning "${narrative.title.substring(0, 20)}..." to taskforce.` });
+    try {
+        const assignmentBrief = await generateTaskforceBrief(narrative);
+        const newItem: TaskforceItem = {
+            id: generateId(),
+            narrativeTitle: narrative.title,
+            assignmentBrief,
+            posts: narrative.posts?.map(p => ({ content: p.content, link: p.link })) || []
+        };
+        setTaskforceItems(prev => [newItem, ...prev]);
+        addToast({ type: 'success', message: 'Successfully assigned to taskforce.' });
+    } catch (err) {
+        console.error("Failed to assign to taskforce:", err);
+        addToast({ type: 'error', message: 'Failed to generate assignment brief.' });
+    }
+  }, [addToast]);
   
   const handleWelcomeAcknowledge = () => {
     setShowWelcome(false);
@@ -127,17 +153,25 @@ const App: React.FC = () => {
       </div>
       {showWelcome && <WelcomeModal onAcknowledge={handleWelcomeAcknowledge} />}
       <div className={`flex h-screen bg-background text-text-primary font-sans transition-all duration-300 ${showWelcome ? 'blur-md' : ''}`}>
-        <Sidebar onAnalyze={handleAnalysis} isLoading={isLoading} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+        <Sidebar onAnalyze={handleAnalysis} isLoading={isLoading} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} currentPage={currentPage} setCurrentPage={setCurrentPage} />
         <div className="flex-1 flex flex-col overflow-hidden">
           <Header isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} theme={theme} setTheme={setTheme} />
           <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto bg-background-secondary">
-            <Dashboard 
-              narratives={narratives} 
-              sources={sources} 
-              isLoading={isLoading} 
-              analysisPhase={analysisPhase}
-            />
+            {currentPage === 'dashboard' ? (
+              <Dashboard 
+                narratives={narratives} 
+                sources={sources} 
+                isLoading={isLoading} 
+                analysisPhase={analysisPhase}
+                onAssignToTaskforce={handleAssignToTaskforce}
+              />
+            ) : (
+              <TaskforceDashboard items={taskforceItems} />
+            )}
           </main>
+          <footer className="flex-shrink-0 bg-background border-t border-border px-4 md:px-6 py-2 text-center text-xs text-text-secondary">
+            Built with Gemini &bull; Open Source &bull; MIT License &bull; London Hackathon 2025
+          </footer>
         </div>
       </div>
     </>

@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Narrative, Post, DMMIReport, OriginReport, CounterOpportunity, AnalysisInput, SearchSource } from '../types';
+import { Narrative, Post, DMMIReport, DisarmAnalysis, CounterOpportunity, AnalysisInput, SearchSource } from '../types';
 import { generateId } from "../utils/generateId";
 
 const API_KEY = process.env.API_KEY;
@@ -39,30 +39,29 @@ const enrichmentSchema = {
       },
       required: ["classification", "intent", "veracity", "successProbability", "rationale"]
     },
-    originReport: {
-      type: Type.OBJECT,
-      properties: {
-        attribution: { type: Type.STRING, enum: ['State-sponsored', 'Ideological Group', 'Bot Network', 'Organic', 'Uncertain'] },
-        confidence: { type: Type.STRING, enum: ['Low', 'Medium', 'High'] },
-        evidence: { type: Type.STRING, description: "Summary of evidence for the attribution (e.g., coordinated timing, linguistic patterns)." }
-      },
-      required: ["attribution", "confidence", "evidence"]
+    disarmAnalysis: {
+        type: Type.OBJECT,
+        properties: {
+            phase: { type: Type.STRING, description: "The primary DISARM Red framework phase observed (e.g., 'Plan', 'Execute')." },
+            tactics: { type: Type.ARRAY, items: { type: Type.STRING }, description: "An array of observed DISARM Red tactics." },
+            techniques: { type: Type.ARRAY, items: { type: Type.STRING }, description: "An array of observed DISARM Red techniques." },
+            confidence: { type: Type.STRING, enum: ['Low', 'Medium', 'High'] },
+        },
+        required: ["phase", "tactics", "techniques", "confidence"]
     },
     counterOpportunities: {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
         properties: {
-          strategy: { type: Type.STRING, enum: ['Pre-bunking', 'Fact-checking', 'Content Amplification', 'Public Awareness Campaign'] },
-          title: { type: Type.STRING, description: "Headline for the counter-action." },
-          description: { type: Type.STRING, description: "Brief description of the counter-action." },
-          exampleContent: { type: Type.STRING, description: "A sample piece of content (e.g., a tweet, a short article)." }
+          tactic: { type: Type.STRING, description: "A specific, defensive DISARM Blue framework tactic to counter the threat." },
+          rationale: { type: Type.STRING, description: "A brief explanation of why this tactic is effective against the observed TTPs." }
         },
-        required: ["strategy", "title", "description", "exampleContent"]
+        required: ["tactic", "rationale"]
       }
     }
   },
-  required: ["dmmiReport", "originReport", "counterOpportunities"]
+  required: ["dmmiReport", "disarmAnalysis", "counterOpportunities"]
 };
 
 export const fetchRealtimePosts = async (inputs: AnalysisInput): Promise<{ posts: Post[], sources: SearchSource[] }> => {
@@ -160,19 +159,19 @@ export const enrichNarrative = async (narrative: Narrative, posts: Post[]): Prom
     const postContent = posts.map(p => `Author: ${p.author}, Content: "${p.content}"`).join('\n').substring(0, 8000);
 
     const prompt = `
-        **CONTEXT:** You are a strategic analyst specializing in information warfare defense.
+        **CONTEXT:** You are an expert analyst in information warfare defense, specializing in both the DMMI and DISARM frameworks.
         **NARRATIVE FOR ANALYSIS:**
         - **Title:** "${narrative.title}"
         - **Summary:** "${narrative.summary}"
         - **Sample Posts:**\n${postContent}
 
-        **YOUR TASK:** Perform a comprehensive analysis and provide a structured JSON response.
+        **YOUR TASK:** Perform a comprehensive analysis and provide a structured JSON response with three top-level objects: 'dmmiReport', 'disarmAnalysis', and 'counterOpportunities'.
         
-        1.  **DMMI Classification:** Classify the narrative using the DMMI framework (Disinformation, Misinformation, Malinformation, Information). Evaluate intent, veracity, and probability of success.
+        1.  **DMMI Report:** Classify the narrative using the DMMI framework (Disinformation, Misinformation, Malinformation, Information). Evaluate intent, veracity, and probability of success.
 
-        2.  **Origin Attribution:** Analyze post patterns, language, and sources to attribute the narrative's origin.
+        2.  **DISARM Analysis:** Analyze the narrative's tactics, techniques, and procedures (TTPs) using the DISARM Red framework. Identify the most likely phase, specific tactics, and techniques employed. Provide a confidence level for your assessment.
 
-        3.  **Counter-Opportunities:** Based on the analysis, propose three distinct, ethical, and defensive counter-opportunities. Focus on strategies like pre-bunking or fact-checking. DO NOT suggest offensive or manipulative tactics.
+        3.  **Counter-Opportunities:** Based on your DISARM analysis, propose three distinct, ethical, and defensive counter-opportunities using the DISARM Blue framework. For each, specify a Blue tactic and a rationale explaining how it directly counters the observed Red TTPs. DO NOT suggest offensive or manipulative tactics.
     `;
 
     try {
@@ -190,7 +189,7 @@ export const enrichNarrative = async (narrative: Narrative, posts: Post[]): Prom
         const jsonText = response.text.trim();
         const enrichmentData = JSON.parse(jsonText) as {
             dmmiReport: DMMIReport;
-            originReport: OriginReport;
+            disarmAnalysis: DisarmAnalysis;
             counterOpportunities: CounterOpportunity[];
         };
 
@@ -208,5 +207,77 @@ export const enrichNarrative = async (narrative: Narrative, posts: Post[]): Prom
     } catch (error) {
         console.error(`Error enriching narrative "${narrative.title}":`, error);
         return { ...narrative, status: 'error' };
+    }
+};
+
+export const generateAllianceBrief = async (narrative: Narrative): Promise<string> => {
+    const model = 'gemini-2.5-flash';
+    const prompt = `
+        You are a senior communications expert tasked with briefing trusted partners in the 'Signal Alliance' to counter a hostile information operation.
+
+        Based on the following intelligence report, generate a concise mission brief (approx. 300 words). The brief must be structured with these four sections, each clearly titled with markdown bolding (e.g., **Overview**):
+
+        1.  **Overview:** A summary of the hostile narrative and its immediate risk.
+        2.  **Key Message:** The core, truthful message our alliance should amplify to counter the narrative.
+        3.  **Talking Points:** 3-4 specific, easy-to-use points that support the key message.
+        4.  **Objective:** The primary goal of this counter-operation (e.g., "Inoculate the public against this falsehood," "Correct the record with verified facts," "Reduce the narrative's virality by 50%").
+
+        **Intelligence Report:**
+        - **Narrative Title:** "${narrative.title}"
+        - **Summary:** "${narrative.summary}"
+        - **DMMI Assessment:** ${narrative.dmmiReport?.classification} with ${narrative.dmmiReport?.intent} intent. Rationale: ${narrative.dmmiReport?.rationale}
+        - **DISARM TTPs Identified:** Phase: ${narrative.disarmAnalysis?.phase}. Tactics: ${narrative.disarmAnalysis?.tactics.join(', ')}. Techniques: ${narrative.disarmAnalysis?.techniques.join(', ')}.
+
+        Generate only the text for the brief, starting with the "**Overview**" heading.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+                temperature: 0.6,
+            }
+        });
+        return response.text;
+    } catch (error) {
+        console.error("Error generating alliance brief:", error);
+        throw new Error("Failed to generate mission brief.");
+    }
+};
+
+export const generateTaskforceBrief = async (narrative: Narrative): Promise<string> => {
+    const model = 'gemini-2.5-flash';
+    const prompt = `
+        You are a platform integrity analyst creating an assignment brief for the internal Digital Action Taskforce.
+
+        Based on the following intelligence, generate a concise brief (approx. 150 words) for the team. The brief must be structured with these four sections, each clearly titled with markdown bolding (e.g., **Threat**):
+
+        1.  **Threat:** A one-sentence summary of the hostile narrative.
+        2.  **Suspected TTP:** List the primary DISARM TTPs identified (tactics and techniques).
+        3.  **Suspected Platform Violation:** State the most likely platform policy violation (e.g., Coordinated Inauthentic Behavior, Hate Speech, Incitement to Violence).
+        4.  **Action Required:** A clear, one-sentence directive for the team (e.g., "Investigate for network activity and coordinate content review," "Initiate takedown request based on policy X," "Monitor for further spread and amplification.").
+
+        **Intelligence Report:**
+        - **Narrative Title:** "${narrative.title}"
+        - **Summary:** "${narrative.summary}"
+        - **DMMI Assessment:** ${narrative.dmmiReport?.classification} with ${narrative.dmmiReport?.intent} intent.
+        - **DISARM TTPs Identified:** Tactics: ${narrative.disarmAnalysis?.tactics.join(', ')}. Techniques: ${narrative.disarmAnalysis?.techniques.join(', ')}.
+
+        Generate only the text for the brief, starting with the "**Threat**" heading.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+                temperature: 0.5,
+            }
+        });
+        return response.text;
+    } catch (error) {
+        console.error("Error generating taskforce brief:", error);
+        throw new Error("Failed to generate assignment brief.");
     }
 };

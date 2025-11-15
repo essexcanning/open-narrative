@@ -1,4 +1,5 @@
 export type Theme = 'light' | 'dark';
+export type Page = 'dashboard' | 'taskforce';
 
 export interface SearchSource {
   uri: string;
@@ -33,17 +34,16 @@ export interface DMMIReport {
   rationale: string;
 }
 
-export interface OriginReport {
-    attribution: 'State-sponsored' | 'Ideological Group' | 'Bot Network' | 'Organic' | 'Uncertain';
-    confidence: 'Low' | 'Medium' | 'High';
-    evidence: string;
+export interface DisarmAnalysis {
+  phase: string;
+  tactics: string[];
+  techniques: string[];
+  confidence: 'Low' | 'Medium' | 'High';
 }
 
 export interface CounterOpportunity {
-    strategy: 'Pre-bunking' | 'Fact-checking' | 'Content Amplification' | 'Public Awareness Campaign';
-    title: string;
-    description: string;
-    exampleContent: string;
+    tactic: string;
+    rationale: string;
 }
 
 export interface Narrative {
@@ -54,8 +54,18 @@ export interface Narrative {
   riskScore: number;
   status: 'pending' | 'complete' | 'error';
   dmmiReport?: DMMIReport;
-  originReport?: OriginReport;
+  disarmAnalysis?: DisarmAnalysis;
   counterOpportunities?: CounterOpportunity[];
   trendData?: { date: string; volume: number }[];
   posts?: Post[]; // Added to hold the raw posts for the new tab
+}
+
+export interface TaskforceItem {
+    id: string;
+    narrativeTitle: string;
+    assignmentBrief: string;
+    posts: {
+        content: string;
+        link: string;
+    }[];
 }

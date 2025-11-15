@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230A84FF'%3E%3Cpath fill-rule='evenodd' d='M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z' clip-rule='evenodd' /%3E%3C/svg%3E" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230A84FF'%3E%3Cpath d='M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.286zm0 13.036h.008v.008h-.008v-.008z'/%3E%3C/svg%3E" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Narrative Sentinel: AI-powered intelligence for defending against information operations. Monitor, analyze, and counter disinformation with enterprise-grade clarity." />
     <title>Narrative Sentinel</title>
@@ -10,7 +10,78 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: 'rgb(var(--color-primary) / <alpha-value>)',
+              'primary-hover': 'rgb(var(--color-primary-hover) / <alpha-value>)',
+              background: 'rgb(var(--color-background) / <alpha-value>)',
+              'background-secondary': 'rgb(var(--color-background-secondary) / <alpha-value>)',
+              'background-card': 'rgb(var(--color-background-card) / <alpha-value>)',
+              'background-hover': 'rgb(var(--color-background-hover) / <alpha-value>)',
+              'background-disabled': 'rgb(var(--color-background-disabled) / <alpha-value>)',
+              border: 'rgb(var(--color-border) / <alpha-value>)',
+              ring: 'rgb(var(--color-primary) / <alpha-value>)',
+              text: {
+                primary: 'rgb(var(--color-text-primary) / <alpha-value>)',
+                secondary: 'rgb(var(--color-text-secondary) / <alpha-value>)',
+                disabled: 'rgb(var(--color-text-disabled) / <alpha-value>)',
+              },
+              success: '#30D158',
+              warning: '#FF9F0A',
+              critical: '#FF453A',
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            keyframes: {
+              'fade-in-up': {
+                '0%': { opacity: '0', transform: 'translateY(20px) scale(0.98)' },
+                '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+              },
+            },
+            animation: {
+              'fade-in-up': 'fade-in-up 0.4s ease-out forwards',
+            },
+            ringOffsetColor: ({ theme }) => ({
+                ...theme('colors'),
+            }),
+          },
+        },
+        plugins: [],
+      }
+    </script>
     <style>
+      :root {
+        /* Dark Mode Defaults */
+        --color-primary: 10 132 255; /* #0A84FF */
+        --color-primary-hover: 60 159 255; /* A lighter shade */
+        --color-background: 15 17 23; /* #0F1117 */
+        --color-background-secondary: 24 28 38; /* #181c26 */
+        --color-background-card: 20 23 30; /* #14171e */
+        --color-background-hover: 37 42 55; /* #252a37 */
+        --color-background-disabled: 30 34 45; /* #1e222d */
+        --color-border: 48 54 69; /* #303645 */
+        --color-text-primary: 249 249 251; /* #F9F9FB */
+        --color-text-secondary: 160 169 188; /* #a0a9bc */
+        --color-text-disabled: 101 110 128; /* #656e80 */
+      }
+      .light {
+        --color-primary: 10 132 255; /* #0A84FF */
+        --color-primary-hover: 0 110 229; /* A darker shade */
+        --color-background: 249 249 251; /* #F9F9FB */
+        --color-background-secondary: 239 240 242; /* #eff0f2 */
+        --color-background-card: 255 255 255; /* #FFFFFF */
+        --color-background-hover: 230 231 234; /* #e6e7ea */
+        --color-background-disabled: 228 229 233; /* #e4e5e9 */
+        --color-border: 221 223 228; /* #dddee4 */
+        --color-text-primary: 15 17 23; /* #0F1117 */
+        --color-text-secondary: 101 110 128; /* #656e80 */
+        --color-text-disabled: 157 163 175; /* #9da3af */
+      }
       body {
         font-family: 'Inter', sans-serif;
         font-feature-settings: 'cv11', 'ss01';

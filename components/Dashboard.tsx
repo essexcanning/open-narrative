@@ -11,12 +11,13 @@ interface DashboardProps {
   sources: SearchSource[];
   isLoading: boolean;
   analysisPhase: 'fetching' | 'clustering' | 'enriching' | null;
+  onAssignToTaskforce: (narrative: Narrative) => Promise<void>;
 }
 
 type SortKey = 'riskScore' | 'title';
 type SortDirection = 'asc' | 'desc';
 
-export const Dashboard: React.FC<DashboardProps> = ({ narratives, sources, isLoading, analysisPhase }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ narratives, sources, isLoading, analysisPhase, onAssignToTaskforce }) => {
     const [sortKey, setSortKey] = useState<SortKey>('riskScore');
     const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
@@ -71,7 +72,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ narratives, sources, isLoa
         }
 
         return (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-fade-in-up">
                 <SourcesUsed sources={sources} />
                 {narratives.length > 0 ? (
                     <>
@@ -97,7 +98,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ narratives, sources, isLoa
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                             {sortedNarratives.map(narrative => (
-                                <NarrativeCard key={narrative.id} narrative={narrative} />
+                                <NarrativeCard 
+                                  key={narrative.id} 
+                                  narrative={narrative} 
+                                  onAssignToTaskforce={onAssignToTaskforce}
+                                />
                             ))}
                         </div>
                     </>
