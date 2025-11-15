@@ -13,7 +13,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ onAcknowledge }) => 
             <div className="bg-background-card rounded-2xl shadow-2xl max-w-2xl w-full p-8 border border-border transform transition-all animate-fade-in-up">
                 <div className="text-center">
                     <ShieldCheckIcon className="h-12 w-12 text-primary mx-auto mb-4"/>
-                    <h2 className="text-2xl font-bold text-text-primary mb-2">Welcome to Narrative Sentinel</h2>
+                    <h2 className="text-2xl font-bold text-text-primary mb-2">Welcome to OpenNarrative</h2>
                     <p className="text-text-secondary">A mission-critical tool for defending information integrity.</p>
                 </div>
                 <div className="text-left text-text-secondary space-y-4 mt-6 text-sm">

@@ -67,12 +67,11 @@ const enrichmentSchema = {
 export const fetchRealtimePosts = async (inputs: AnalysisInput): Promise<{ posts: Post[], sources: SearchSource[] }> => {
     const model = 'gemini-2.5-flash';
     const prompt = `
-        You are a research assistant. Your task is to find recent and relevant online content about "${inputs.topic}" in "${inputs.country}" within the timeframe of ${inputs.timeFrame.start} to ${inputs.timeFrame.end}.
-        Use Google Search to find a diverse set of sources, including news reports, web articles, and social media posts.
-        Based on your search results, synthesize a structured JSON array of 30-50 post objects.
+        You are a research assistant. Your task is to discover the most significant online content from "${inputs.country}" within the timeframe of ${inputs.timeFrame.start} to ${inputs.timeFrame.end}.
+        Based on the user's selected Country and Time Frame, perform a Google search to find the top 5-10 most significant, controversial, or widely discussed news stories, events, and public discussions in that country.
+        Synthesize your findings into a structured JSON array of 30-50 post objects reflecting these discovered topics.
         The JSON output must be enclosed in a single markdown code block like this: \`\`\`json ... \`\`\`.
         Each object in the array must have the following properties: "id" (string), "source" (string, one of 'Web Article', 'Social Media Post', 'News Report'), "author" (string), "content" (string summary), "timestamp" (string, YYYY-MM-DD), and "link" (string URL).
-        Ensure the content is realistic and reflects a mix of potential online discussions on the topic.
     `;
 
     try {

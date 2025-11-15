@@ -1,5 +1,5 @@
 {
-  "name": "Narrative Sentinel",
+  "name": "OpenNarrative",
   "description": "A defensive tool for monitoring and countering information operations by detecting trending narratives, assessing their risks using the DMMI framework, attributing origins, and suggesting ethical countermeasures.",
   "requestFramePermissions": []
 }

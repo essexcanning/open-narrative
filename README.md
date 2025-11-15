@@ -1,8 +1,8 @@
-# Narrative Sentinel
+# OpenNarrative
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Tech Stack](https://img.shields.io/badge/Tech-React%20%7C%20Gemini%20%7C%20TypeScript-brightgreen)
-![Status](https://img.shields.io/badge/Status-Hackathon%20Build-orange)
+![Status](https://img.shields.io/badge/Status-Alpha-orange)
 
 An AI-powered defensive tool for monitoring and countering information operations by detecting trending narratives, assessing their risks using the DMMI & DISARM frameworks, and suggesting ethical countermeasures.
 
@@ -10,7 +10,7 @@ An AI-powered defensive tool for monitoring and countering information operation
 
 ## Overview
 
-Narrative Sentinel is a mission-critical dashboard designed for information integrity analysts, researchers, and platform trust & safety teams. In an increasingly complex information environment, this tool provides the necessary clarity and operational speed to identify and mitigate the impact of harmful narratives like disinformation and foreign interference.
+OpenNarrative is a mission-critical dashboard designed for information integrity analysts, researchers, and platform trust & safety teams. In an increasingly complex information environment, this tool provides the necessary clarity and operational speed to identify and mitigate the impact of harmful narratives like disinformation and foreign interference.
 
 The application moves beyond simple content moderation by focusing on the **tactics, techniques, and procedures (TTPs)** behind information operations, providing a strategic, framework-driven approach to defense.
 
@@ -67,8 +67,8 @@ This project uses an `index.html` file with an `importmap` for modern ES module 
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-username/narrative-sentinel.git
-    cd narrative-sentinel
+    git clone https://github.com/your-username/opennarrative.git
+    cd opennarrative
     ```
 
 2.  **Set up your API Key:**

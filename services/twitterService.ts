@@ -33,7 +33,8 @@ interface TwitterApiResponse {
  */
 export const fetchTwitterPosts = async (inputs: AnalysisInput): Promise<{ posts: Post[], sources: SearchSource[] }> => {
     // Construct the query for the backend proxy.
-    const query = `(${inputs.topic}) lang:en -is:retweet`;
+    // Since the user no longer provides a topic, we search for broad, high-signal keywords related to news and public discourse.
+    const query = `("top stories" OR "breaking news" OR "headlines" OR "public debate") lang:en -is:retweet`;
     const encodedQuery = encodeURIComponent(query);
     const countryCode = await getCountryCode(inputs.country); // Helper to get 2-letter code
     
@@ -116,13 +117,11 @@ example for Vercel, but the logic is similar for Netlify, Google Cloud Functions
 2.  Go to your hosting provider's dashboard (e.g., Vercel Project Settings).
 3.  Find the "Environment Variables" section.
 4.  Add the following secrets:
-    - Name: TWITTER_API_KEY,       Value: [Your Twitter API Key]
-    - Name: TWITTER_API_SECRET,    Value: [Your Twitter API Key Secret]
     - Name: TWITTER_BEARER_TOKEN,  Value: [Your Twitter Bearer Token]
 
-    These variables are injected securely at runtime and are never exposed to the public.
-
 5.  Deploy the code below as a serverless function at the path `/api/twitter-search`.
+    The frontend now sends a generic query to discover trending topics, which this
+    proxy will pass to the Twitter API along with a country filter.
 
 --------------------------------------------------------------------------------
 // File: /api/twitter-search.js (Example using Vercel Edge Functions syntax)
@@ -143,11 +142,10 @@ export default async function handler(request) {
     });
   }
 
-  // Add country to the query if provided
+  // Add country to the query if provided. This helps narrow the search to the region of interest.
   const fullQuery = country ? `${query} place_country:${country}` : query;
 
   // Securely access the Bearer Token from environment variables.
-  // The Twitter v2 recent search endpoint only requires the Bearer Token.
   const TWITTER_BEARER_TOKEN = process.env.TWITTER_BEARER_TOKEN;
 
   if (!TWITTER_BEARER_TOKEN) {

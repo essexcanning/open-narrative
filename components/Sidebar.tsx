@@ -35,7 +35,6 @@ const NavButton: React.FC<{ icon: React.ElementType; label: string; isActive: bo
 
 export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, isLoading, isOpen, setIsOpen, currentPage, setCurrentPage }) => {
   const [country, setCountry] = useState('Moldova');
-  const [topic, setTopic] = useState('elections and Russian influence');
   const [startDate, setStartDate] = useState(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [sources, setSources] = useState({
@@ -65,7 +64,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, isLoading, isOpen, 
 
     onAnalyze({
       country,
-      topic,
       timeFrame: { start: startDate, end: endDate },
       sources: selectedSources,
     });
@@ -77,7 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, isLoading, isOpen, 
       isOpen ? "w-full md:w-80 lg:w-96 p-6" : "w-0 p-0 overflow-hidden"
     )}>
        <div className="flex items-center justify-between mb-6 min-w-[300px]">
-         <h2 className="text-xl font-semibold text-text-primary">Narrative Sentinel</h2>
+         <h2 className="text-xl font-semibold text-text-primary">OpenNarrative</h2>
          <button onClick={() => setIsOpen(false)} className="md:hidden p-1 text-text-secondary hover:text-text-primary">
             <ChevronLeftIcon className="h-6 w-6" />
         </button>
@@ -104,16 +102,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, isLoading, isOpen, 
             onChange={setCountry}
             options={COUNTRIES.map(c => ({ value: c, label: c }))}
           />
-          <CustomInput
-            id="topic"
-            label="Topic / Event"
-            value={topic}
-            onChange={setTopic}
-            placeholder="e.g., 'elections'"
-          />
           <div>
              <label className="block text-sm font-medium text-text-secondary mb-2">Time Frame</label>
-            <div className="flex space-x-2">
+            <div className="space-y-2">
                 <CustomDateInput value={startDate} onChange={setStartDate} />
                 <CustomDateInput value={endDate} onChange={setEndDate} />
             </div>
@@ -141,7 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onAnalyze, isLoading, isOpen, 
                         <LoadingSpinner className="h-5 w-5 mr-2" />
                         Analyzing...
                     </>
-                ) : 'Run Analysis'}
+                ) : 'Discover Narratives'}
             </button>
         </div>
       </form>

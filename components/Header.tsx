@@ -33,7 +33,7 @@ export const Header: React.FC<HeaderProps> = ({ isSidebarOpen, setIsSidebarOpen,
                     {isSidebarOpen ? <ChevronLeftIcon className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
                 </button>
                 <h1 className="text-xl font-bold text-text-primary tracking-tight">
-                    Narrative Sentinel
+                    OpenNarrative
                 </h1>
                 <span className="hidden sm:inline-block bg-primary/10 text-primary text-xs font-medium px-2 py-0.5 rounded-full">
                     Hackathon Build

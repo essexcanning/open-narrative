@@ -37,7 +37,7 @@ const App: React.FC = () => {
     setCurrentPage('dashboard');
     setNarratives([]);
     setSources([]);
-    addToast({ type: 'info', message: 'Starting analysis... Fetching real-time data.' });
+    addToast({ type: 'info', message: 'Starting analysis... Discovering narratives.' });
 
     try {
       const dataPromises: Promise<{ posts: Post[], sources: SearchSource[] }>[] = [];
@@ -68,12 +68,12 @@ const App: React.FC = () => {
       setSources(uniqueSources);
 
       if (combinedPosts.length === 0) {
-        addToast({ type: 'warning', message: 'No relevant posts found for the given criteria.' });
+        addToast({ type: 'warning', message: 'No significant posts found for the given criteria.' });
         setNarratives([]);
       } else {
         setAnalysisPhase('clustering');
         addToast({ type: 'info', message: `Found ${combinedPosts.length} posts. Clustering narratives...` });
-        const initialNarratives = await detectAndClusterNarratives(combinedPosts, `narratives about ${inputs.topic} in ${inputs.country}`);
+        const initialNarratives = await detectAndClusterNarratives(combinedPosts, `trending narratives in ${inputs.country}`);
         
         if (!initialNarratives || initialNarratives.length === 0) {
           addToast({ type: 'warning', message: 'Could not detect distinct narratives.' });

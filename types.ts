@@ -8,7 +8,6 @@ export interface SearchSource {
 
 export interface AnalysisInput {
   country: string;
-  topic: string;
   timeFrame: {
     start: string;
     end: string;
