@@ -1,4 +1,5 @@
-import { GoogleGenAI, Type } from "@google/genai";
+
+import { GoogleGenAI, Type, Chat } from "@google/genai";
 import { Narrative, Post, DMMIReport, DisarmAnalysis, CounterOpportunity, AnalysisInput, SearchSource } from '../types';
 import { generateId } from "../utils/generateId";
 
@@ -82,10 +83,13 @@ const enrichmentSchema = {
         classification: { type: Type.STRING, enum: ['Disinformation', 'Misinformation', 'Malinformation', 'Information'] },
         intent: { type: Type.STRING, enum: ['Harmful', 'Benign', 'Uncertain'] },
         veracity: { type: Type.STRING, enum: ['False', 'Misleading', 'True', 'Unverified'] },
-        successProbability: { type: Type.INTEGER, description: "Estimated probability of narrative success (0-100)." },
+        veracityScore: { type: Type.INTEGER, description: "Score 0-10. 0 = Complete Falsehood, 10 = Absolute Truth." },
+        harmScore: { type: Type.INTEGER, description: "Score 0-10. 0 = Harmless, 10 = Severe Societal Harm." },
+        probabilityScore: { type: Type.INTEGER, description: "Score 0-10. 0 = Highly Unlikely to succeed, 10 = Highly Likely/Viral." },
+        matrixRiskScore: { type: Type.INTEGER, description: "Calculated total risk (0-10) based on the DMMI Matrix Cube formula." },
         rationale: { type: Type.STRING, description: "Brief rationale for the DMMI classification." }
       },
-      required: ["classification", "intent", "veracity", "successProbability", "rationale"]
+      required: ["classification", "intent", "veracity", "veracityScore", "harmScore", "probabilityScore", "matrixRiskScore", "rationale"]
     },
     disarmAnalysis: {
         type: Type.OBJECT,
@@ -107,9 +111,13 @@ const enrichmentSchema = {
         },
         required: ["tactic", "rationale"]
       }
+    },
+    updatedRiskScore: {
+        type: Type.INTEGER,
+        description: "An updated risk score from 1 (low) to 10 (high) based on the deep analysis of TTPs, veracity, and potential for harm."
     }
   },
-  required: ["dmmiReport", "disarmAnalysis", "counterOpportunities"]
+  required: ["dmmiReport", "disarmAnalysis", "counterOpportunities", "updatedRiskScore"]
 };
 
 export const fetchRealtimePosts = async (inputs: AnalysisInput): Promise<{ posts: Post[], sources: SearchSource[] }> => {
@@ -224,19 +232,28 @@ export const enrichNarrative = async (narrative: Narrative, posts: Post[]): Prom
     const postContent = postsWithMediaNotes.map(p => `Author: ${p.author}, Content: "${p.content}"`).join('\n').substring(0, 8000);
 
     const prompt = `
-        **CONTEXT:** You are an expert analyst in information warfare defense, specializing in both the DMMI and DISARM frameworks.
+        **CONTEXT:** You are an expert analyst in information warfare defense, specializing in the **DMMI Matrix Cube** for risk assessment.
         **NARRATIVE FOR ANALYSIS:**
         - **Title:** "${narrative.title}"
         - **Summary:** "${narrative.summary}"
+        - **Initial Risk Score:** ${narrative.riskScore}
         - **Sample Posts:**\n${postContent}
 
-        **YOUR TASK:** Perform a comprehensive analysis and provide a structured JSON response with three top-level objects: 'dmmiReport', 'disarmAnalysis', and 'counterOpportunities'.
+        **YOUR TASK:** Perform a comprehensive analysis and provide a structured JSON response.
         
-        1.  **DMMI Report:** Classify the narrative using the DMMI framework (Disinformation, Misinformation, Malinformation, Information). Evaluate intent, veracity, and probability of success.
+        1.  **DMMI Matrix Cube Assessment:**
+            - Assess the narrative on three specific axes (0-10 scale):
+              - **Veracity (v):** 0 (Total Lie) to 10 (Verified Fact).
+              - **Intention to Harm (i):** 0 (Benign) to 10 (Severe/Existential).
+              - **Probability of Success (P):** 0 (Highly Unlikely) to 10 (Highly Likely/Viral).
+            - Calculate the **Matrix Risk Score** based on these factors. Generally, high harm + low veracity + high probability = Maximum Risk. Malinformation is High Harm + High Veracity + High Probability.
+            - Classify the type (Disinformation, Misinformation, Malinformation, Information).
 
-        2.  **DISARM Analysis:** Analyze the narrative's tactics, techniques, and procedures (TTPs) using the DISARM Red framework. Identify the most likely phase, specific tactics, and techniques employed. Provide a confidence level for your assessment.
+        2.  **DISARM Analysis:** Analyze TTPs using the DISARM Red framework (Phase, Tactics, Techniques).
 
-        3.  **Counter-Opportunities:** Based on your DISARM analysis, propose three distinct, ethical, and defensive counter-opportunities using the DISARM Blue framework. For each, specify a Blue tactic and a rationale explaining how it directly counters the observed Red TTPs. DO NOT suggest offensive or manipulative tactics.
+        3.  **Counter-Opportunities:** Propose three defensive counter-opportunities (DISARM Blue).
+        
+        4.  **Updated Risk Score:** An overall score (1-10) aligning with the Matrix Risk Score.
     `;
 
     try {
@@ -255,6 +272,7 @@ export const enrichNarrative = async (narrative: Narrative, posts: Post[]): Prom
             dmmiReport: DMMIReport;
             disarmAnalysis: DisarmAnalysis;
             counterOpportunities: CounterOpportunity[];
+            updatedRiskScore: number;
         };
 
         const trendData = Array.from({ length: 14 }, (_, i) => {
@@ -266,11 +284,86 @@ export const enrichNarrative = async (narrative: Narrative, posts: Post[]): Prom
             };
         });
 
-        return { ...narrative, ...enrichmentData, posts: postsWithMediaNotes, trendData, status: 'complete' };
+        let isTrending = false;
+        
+        // Check for significant volume increase
+        if (trendData.length >= 2) {
+            const lastVolume = trendData[trendData.length - 1].volume;
+            const secondLastVolume = trendData[trendData.length - 2].volume;
+            if (secondLastVolume > 0 && lastVolume > secondLastVolume * 1.5) {
+                isTrending = true;
+            }
+        }
+
+        // Check for significant risk score increase
+        const initialRiskScore = narrative.riskScore;
+        const finalRiskScore = enrichmentData.updatedRiskScore ?? initialRiskScore;
+        // Define significant increase as jumping 3+ points.
+        if (finalRiskScore > initialRiskScore + 2) {
+             isTrending = true;
+        }
+        
+        const { updatedRiskScore, ...reportData } = enrichmentData;
+
+        return { 
+            ...narrative, 
+            ...reportData, 
+            riskScore: finalRiskScore,
+            posts: postsWithMediaNotes, 
+            trendData, 
+            status: 'complete', 
+            isTrending 
+        };
 
     } catch (error) {
         console.error(`Error enriching narrative "${narrative.title}":`, error);
         return { ...narrative, status: 'error' };
+    }
+};
+
+export const generateCounterActionPlan = async (narrative: Narrative, counter: CounterOpportunity): Promise<string> => {
+    const model = 'gemini-2.5-pro';
+    
+    const prompt = `
+        **CONTEXT:** You are a world-class strategic communications expert and information defense planner. You are tasked with operationalizing a proposed counter-narrative tactic.
+
+        **HOSTILE NARRATIVE FOR COUNTERING:**
+        - **Title:** "${narrative.title}"
+        - **Summary:** "${narrative.summary}"
+        - **Identified Adversary TTPs (DISARM Framework):**
+            - **Phase:** ${narrative.disarmAnalysis?.phase}
+            - **Tactics:** ${narrative.disarmAnalysis?.tactics.join(', ')}
+            - **Techniques:** ${narrative.disarmAnalysis?.techniques.join(', ')}
+
+        **PROPOSED COUNTER-TACTIC (DISARM Blue Framework):**
+        - **Tactic:** "${counter.tactic}"
+        - **Rationale:** "${counter.rationale}"
+
+        **YOUR TASK:**
+        Engage deep thinking to devise a comprehensive, step-by-step action plan to implement this counter-tactic effectively. The plan must be detailed, ethical, practical, and directly address the adversary's TTPs.
+
+        Structure your response in markdown format with the following five sections. Use bold markdown for headings (e.g., **Objective**).
+
+        1.  **Objective:** A single, clear, and measurable goal for this action plan.
+        2.  **Target Audience(s):** Who are the primary and secondary audiences for this counter-messaging? Be specific (e.g., "Journalists covering technology," "Parents of school-aged children in the affected region").
+        3.  **Key Messaging & Content:** What is the core message? Provide 3-5 specific talking points or content ideas (e.g., "Develop a one-page fact sheet," "Create a short animated video explaining the technique").
+        4.  **Execution Steps:** A numbered list of concrete steps to take. Be specific about platforms and actions (e.g., "1. Draft a press release and distribute to tech reporters. 2. Share the animated video on Twitter and Facebook. 3. Engage with fact-checking organizations.").
+        5.  **Metrics for Success (KPIs):** How will you measure success? List 2-3 key performance indicators (e.g., "Number of positive media mentions," "Reach and engagement rate of our video," "Reduction in sharing of the original hostile narrative").
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+                thinkingConfig: { thinkingBudget: 32768 },
+                temperature: 0.6,
+            }
+        });
+        return response.text;
+    } catch (error) {
+        console.error("Error generating counter action plan:", error);
+        throw new Error("Failed to generate the detailed action plan.");
     }
 };
 
@@ -281,7 +374,7 @@ export const generateAllianceBrief = async (narrative: Narrative): Promise<strin
 
         Based on the following intelligence report, generate a concise mission brief (approx. 300 words). The brief must be structured with these four sections, each clearly titled with markdown bolding (e.g., **Overview**):
 
-        1.  **Overview:** A summary of the hostile narrative and its immediate risk.
+        1.  **Overview:** A summary of the hostile narrative and its immediate risk based on the DMMI Matrix Cube (Harm, Veracity, Probability).
         2.  **Key Message:** The core, truthful message our alliance should amplify to counter the narrative.
         3.  **Talking Points:** 3-4 specific, easy-to-use points that support the key message.
         4.  **Objective:** The primary goal of this counter-operation (e.g., "Inoculate the public against this falsehood," "Correct the record with verified facts," "Reduce the narrative's virality by 50%").
@@ -289,7 +382,9 @@ export const generateAllianceBrief = async (narrative: Narrative): Promise<strin
         **Intelligence Report:**
         - **Narrative Title:** "${narrative.title}"
         - **Summary:** "${narrative.summary}"
-        - **DMMI Assessment:** ${narrative.dmmiReport?.classification} with ${narrative.dmmiReport?.intent} intent. Rationale: ${narrative.dmmiReport?.rationale}
+        - **DMMI Assessment:** ${narrative.dmmiReport?.classification} with ${narrative.dmmiReport?.intent} intent. 
+        - **Matrix Cube Scores:** Harm: ${narrative.dmmiReport?.harmScore}/10, Veracity: ${narrative.dmmiReport?.veracityScore}/10, Probability: ${narrative.dmmiReport?.probabilityScore}/10.
+        - **Rationale:** ${narrative.dmmiReport?.rationale}
         - **DISARM TTPs Identified:** Phase: ${narrative.disarmAnalysis?.phase}. Tactics: ${narrative.disarmAnalysis?.tactics.join(', ')}. Techniques: ${narrative.disarmAnalysis?.techniques.join(', ')}.
 
         Generate only the text for the brief, starting with the "**Overview**" heading.
@@ -344,4 +439,37 @@ export const generateTaskforceBrief = async (narrative: Narrative): Promise<stri
         console.error("Error generating taskforce brief:", error);
         throw new Error("Failed to generate assignment brief.");
     }
+};
+
+export const createNarrativeChat = (narrative: Narrative): Chat => {
+    const postSummary = narrative.posts?.slice(0, 10).map(p => `- ${p.author}: ${p.content}`).join('\n') || "No posts available.";
+    
+    const systemInstruction = `
+        You are the "Analyst Copilot" for OpenNarrative, an advanced defense tool against information operations.
+        You are assisting a human intelligence analyst who is investigating a specific hostile narrative.
+        
+        **Narrative Intelligence Context:**
+        - **Title:** "${narrative.title}"
+        - **Summary:** "${narrative.summary}"
+        - **Matrix Risk Score:** ${narrative.dmmiReport?.matrixRiskScore}/10
+        - **DMMI Cube Profile:** Veracity: ${narrative.dmmiReport?.veracityScore}/10, Harm: ${narrative.dmmiReport?.harmScore}/10, Probability: ${narrative.dmmiReport?.probabilityScore}/10.
+        - **DMMI Classification:** ${narrative.dmmiReport?.classification} (${narrative.dmmiReport?.intent}, ${narrative.dmmiReport?.veracity})
+        - **DISARM Strategy:** Phase: ${narrative.disarmAnalysis?.phase}, Tactics: ${narrative.disarmAnalysis?.tactics.join(', ')}
+        - **Recent Posts Context:**
+        ${postSummary}
+
+        **Your Role:**
+        1. Answer questions about the narrative's structure, key actors, and potential impact.
+        2. Help draft counter-messaging or debunking content based on the verified facts (or lack thereof).
+        3. Explain complex DMMI or DISARM concepts in the context of this specific narrative.
+        4. Be concise, professional, and operationally focused. Do not lecture; provide actionable intelligence.
+    `;
+
+    return ai.chats.create({
+        model: 'gemini-2.5-flash',
+        config: {
+            systemInstruction,
+            temperature: 0.4,
+        }
+    });
 };

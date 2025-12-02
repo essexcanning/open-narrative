@@ -1,3 +1,4 @@
+
 export type Theme = 'light' | 'dark';
 export type Page = 'dashboard' | 'taskforce' | 'detail';
 
@@ -36,7 +37,11 @@ export interface DMMIReport {
   classification: 'Disinformation' | 'Misinformation' | 'Malinformation' | 'Information';
   intent: 'Harmful' | 'Benign' | 'Uncertain';
   veracity: 'False' | 'Misleading' | 'True' | 'Unverified';
-  successProbability: number; // 0-100
+  // Matrix Cube Scores (0-10 scale)
+  veracityScore: number; 
+  harmScore: number;
+  probabilityScore: number;
+  matrixRiskScore: number; // Calculated final risk based on the Cube formula
   rationale: string;
 }
 
@@ -65,6 +70,7 @@ export interface Narrative {
   counterOpportunities?: CounterOpportunity[];
   trendData?: { date: string; volume: number }[];
   posts?: Post[]; // Added to hold the raw posts for the new tab
+  isTrending?: boolean;
 }
 
 export interface TaskforceItem {
@@ -87,4 +93,12 @@ export interface AnalysisHistoryItem {
   id: string;
   timestamp: string;
   inputs: AnalysisInput;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'model';
+  text: string;
+  isThinking?: boolean;
+  timestamp?: Date;
 }

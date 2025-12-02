@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 // Existing Icons (some might be visually updated for consistency)
@@ -196,5 +197,23 @@ export const TagIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
+    </svg>
+);
+
+export const FlameIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" {...props}>
+        <path fillRule="evenodd" d="M11.32 2.222a.75.75 0 01.448.877 6.75 6.75 0 01-3.52 5.093 4.502 4.502 0 00-2.022 3.843c0 .54.06.942.152 1.259.096.328.228.633.394.921.166.288.372.55.614.782a5.217 5.217 0 004.288 1.994 5.217 5.217 0 004.288-1.994c.242-.232.448-.494.614-.782.166-.288.298-.593.394-.921.093-.317.152-.719.152-1.259a4.502 4.502 0 00-2.022-3.843 6.75 6.75 0 01-3.52-5.093.75.75 0 01.876-.448 5.25 5.25 0 003.882-4.145.75.75 0 011.082-.204 8.25 8.25 0 01-6.138 14.283A8.25 8.25 0 013.5 9.073a6.75 6.75 0 011.018-3.655 4.5 4.5 0 001.35-2.42.75.75 0 011.385.462 3 3 0 01-1.025 2.126 5.25 5.25 0 003.111 3.253.75.75 0 010 1.352 5.25 5.25 0 00-3.11-3.253A3 3 0 017.07 4.146a4.501 4.501 0 00-1.35 2.42 6.75 6.75 0 01-1.018 3.655A8.25 8.25 0 0111.45 2.25a.75.75 0 01-.13-.028z" clipRule="evenodd" />
+    </svg>
+);
+
+export const ChatIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+    </svg>
+);
+
+export const SendIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
+        <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
     </svg>
 );

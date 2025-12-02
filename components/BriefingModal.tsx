@@ -13,7 +13,7 @@ export const BriefingModal: React.FC<BriefingModalProps> = ({ narrative, onClose
     const [isLoading, setIsLoading] = useState(true);
     const [brief, setBrief] = useState('');
     const [error, setError] = useState<string | null>(null);
-    const [copyButtonText, setCopyButtonText] = useState('Copy to Clipboard');
+    const [copyButtonText, setCopyButtonText] = useState('Copy');
     const [copyButtonIcon, setCopyButtonIcon] = useState(<ClipboardIcon className="h-4 w-4" />);
 
     useEffect(() => {
@@ -38,14 +38,14 @@ export const BriefingModal: React.FC<BriefingModalProps> = ({ narrative, onClose
             setCopyButtonText('Copied!');
             setCopyButtonIcon(<CheckIcon className="h-4 w-4 text-success" />);
             setTimeout(() => {
-                setCopyButtonText('Copy to Clipboard');
+                setCopyButtonText('Copy');
                 setCopyButtonIcon(<ClipboardIcon className="h-4 w-4" />);
             }, 2000);
         }).catch(err => {
             console.error('Failed to copy text: ', err);
             setCopyButtonText('Copy Failed');
             setTimeout(() => {
-                 setCopyButtonText('Copy to Clipboard');
+                 setCopyButtonText('Copy');
                  setCopyButtonIcon(<ClipboardIcon className="h-4 w-4" />);
             }, 2000);
         });
@@ -97,17 +97,21 @@ export const BriefingModal: React.FC<BriefingModalProps> = ({ narrative, onClose
                     </button>
                 </div>
                 <div className="p-6">
-                    {renderContent()}
+                    <div className="relative">
+                        {renderContent()}
+                        {!isLoading && !error && (
+                            <button
+                                onClick={handleCopy}
+                                className="absolute top-3 right-3 z-10 flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-md text-text-primary bg-background-card hover:bg-background-hover border border-border disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                title="Copy to Clipboard"
+                            >
+                                {copyButtonIcon}
+                                {copyButtonText}
+                            </button>
+                        )}
+                    </div>
                 </div>
                 <div className="flex justify-end items-center gap-4 p-4 bg-background/50 border-t border-border rounded-b-xl">
-                    <button
-                        onClick={handleCopy}
-                        disabled={isLoading || !!error}
-                        className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-md text-text-primary bg-background-secondary hover:bg-background-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        {copyButtonIcon}
-                        {copyButtonText}
-                    </button>
                      <button
                         onClick={onClose}
                         className="text-sm font-medium px-4 py-2 rounded-md text-text-primary bg-background-hover hover:opacity-80"
