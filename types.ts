@@ -5,6 +5,8 @@ export type Page = 'dashboard' | 'taskforce' | 'detail';
 export interface User {
   id: string;
   name: string;
+  email: string;
+  photoUrl?: string;
   initials: string;
 }
 

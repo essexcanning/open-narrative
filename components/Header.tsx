@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Theme, User } from '../types';
 import { SunIcon, MoonIcon, MenuIcon, ChevronLeftIcon, LogoutIcon } from './icons/GeneralIcons';
@@ -68,15 +69,19 @@ export const Header: React.FC<HeaderProps> = ({ isSidebarOpen, setIsSidebarOpen,
                 <div className="relative" ref={dropdownRef}>
                     <button 
                         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                        className="w-8 h-8 rounded-full bg-background-hover border border-border flex items-center justify-center text-sm font-semibold text-text-secondary hover:ring-2 hover:ring-primary/50 transition-all"
+                        className="w-8 h-8 rounded-full bg-background-hover border border-border flex items-center justify-center text-sm font-semibold text-text-secondary hover:ring-2 hover:ring-primary/50 transition-all overflow-hidden"
                     >
-                        {currentUser?.initials || '??'}
+                        {currentUser?.photoUrl ? (
+                            <img src={currentUser.photoUrl} alt={currentUser.name} className="w-full h-full object-cover" />
+                        ) : (
+                            currentUser?.initials || '??'
+                        )}
                     </button>
                     {isDropdownOpen && (
-                        <div className="absolute right-0 mt-2 w-48 bg-background-card rounded-md shadow-lg border border-border z-10 animate-fade-in-up" style={{animationDuration: '0.2s'}}>
-                            <div className="p-2 border-b border-border">
-                                <p className="text-sm font-semibold text-text-primary">{currentUser?.name}</p>
-                                <p className="text-xs text-text-secondary">Analyst</p>
+                        <div className="absolute right-0 mt-2 w-56 bg-background-card rounded-md shadow-lg border border-border z-10 animate-fade-in-up" style={{animationDuration: '0.2s'}}>
+                            <div className="p-3 border-b border-border">
+                                <p className="text-sm font-semibold text-text-primary truncate">{currentUser?.name}</p>
+                                <p className="text-xs text-text-secondary truncate">{currentUser?.email}</p>
                             </div>
                             <div className="p-1">
                                 <button onClick={onLogout} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-text-secondary hover:bg-background-hover hover:text-text-primary rounded-md transition-colors">

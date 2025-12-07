@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
@@ -11,12 +12,7 @@ import { generateId } from './utils/generateId';
 import { TaskforceDashboard } from './components/TaskforceDashboard';
 import { LoginModal } from './components/LoginModal';
 import { NarrativeDetail } from './components/NarrativeDetail';
-
-const mockUsers: User[] = [
-    { id: 'u1', name: 'Alex Johnson', initials: 'AJ' },
-    { id: 'u2', name: 'Ben Carter', initials: 'BC' },
-    { id: 'u3', name: 'Casey Diaz', initials: 'CD' },
-];
+import { auth, onAuthStateChanged, signOut, mapFirebaseUser } from './services/firebase';
 
 const App: React.FC = () => {
   const [narratives, setNarratives] = useState<Narrative[]>([]);
@@ -31,6 +27,7 @@ const App: React.FC = () => {
   const [taskforceItems, setTaskforceItems] = useState<TaskforceItem[]>([]);
   const [analysisSteps, setAnalysisSteps] = useState<AnalysisStep[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [selectedNarrative, setSelectedNarrative] = useState<Narrative | null>(null);
   const [analysisHistory, setAnalysisHistory] = useState<AnalysisHistoryItem[]>([]);
   
@@ -38,17 +35,34 @@ const App: React.FC = () => {
     document.documentElement.classList.remove('light', 'dark');
     document.documentElement.classList.add(theme);
   }, [theme]);
+
+  // Auth Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+        if (firebaseUser) {
+            setCurrentUser(mapFirebaseUser(firebaseUser));
+        } else {
+            setCurrentUser(null);
+        }
+        setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
   
   useEffect(() => {
-    try {
-        const storedHistory = localStorage.getItem('openNarrativeHistory');
-        if (storedHistory) {
-            setAnalysisHistory(JSON.parse(storedHistory));
+    if (currentUser) {
+        try {
+            const storedHistory = localStorage.getItem(`openNarrativeHistory_${currentUser.id}`);
+            if (storedHistory) {
+                setAnalysisHistory(JSON.parse(storedHistory));
+            } else {
+                setAnalysisHistory([]);
+            }
+        } catch (error) {
+            console.error("Failed to load analysis history from localStorage", error);
         }
-    } catch (error) {
-        console.error("Failed to load analysis history from localStorage", error);
     }
-  }, []);
+  }, [currentUser]);
 
 
   const addToast = useCallback((toast: Omit<ToastData, 'id'>) => {
@@ -56,6 +70,8 @@ const App: React.FC = () => {
   }, []);
 
   const handleAnalysis = useCallback(async (inputs: AnalysisInput) => {
+    if (!currentUser) return;
+
     // Add to history right away, move to top if it's a re-run
     const newHistoryItem: AnalysisHistoryItem = {
         id: generateId(),
@@ -66,7 +82,7 @@ const App: React.FC = () => {
         const filtered = prev.filter(item => JSON.stringify(item.inputs) !== JSON.stringify(inputs));
         const updated = [newHistoryItem, ...filtered].slice(0, 20); // Keep last 20
         try {
-            localStorage.setItem('openNarrativeHistory', JSON.stringify(updated));
+            localStorage.setItem(`openNarrativeHistory_${currentUser.id}`, JSON.stringify(updated));
         } catch (error) {
             console.error("Failed to save analysis history to localStorage", error);
         }
@@ -183,7 +199,7 @@ const App: React.FC = () => {
           setAnalysisPhase(null); // Enrichment is done.
       }
     }
-  }, [addToast, analysisPhase]);
+  }, [addToast, analysisPhase, currentUser]);
 
   const handleAssignToTaskforce = useCallback(async (narrative: Narrative) => {
     addToast({ type: 'info', message: `Assigning "${narrative.title.substring(0, 20)}..." to taskforce.` });
@@ -215,12 +231,8 @@ const App: React.FC = () => {
     addToast({ type: 'success', message: `Tagged narrative as part of "${campaignName}" campaign.` });
   }, [narratives, selectedNarrative, addToast]);
 
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
+  const handleLogout = async () => {
+    await signOut();
     // Reset app state for a clean slate
     setNarratives([]);
     setSources([]);
@@ -249,9 +261,10 @@ const App: React.FC = () => {
   };
   
   const handleClearHistory = () => {
+      if (!currentUser) return;
       setAnalysisHistory([]);
       try {
-          localStorage.removeItem('openNarrativeHistory');
+          localStorage.removeItem(`openNarrativeHistory_${currentUser.id}`);
           addToast({ type: 'info', message: 'Analysis history cleared.' });
       } catch (e) {
           console.error('Failed to clear history:', e);
@@ -259,9 +272,17 @@ const App: React.FC = () => {
       }
   };
 
+  if (authLoading) {
+      return (
+          <div className="flex h-screen items-center justify-center bg-background">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          </div>
+      );
+  }
 
   if (!currentUser) {
-    return <LoginModal users={mockUsers} onLogin={handleLogin} />;
+    // Just a placeholder callback, real auth handling is in the useEffect/listener
+    return <LoginModal onLoginSuccess={() => {}} />;
   }
   
   const renderPage = () => {
