@@ -217,3 +217,10 @@ export const SendIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
         <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
     </svg>
 );
+
+export const FingerPrintIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7.875 14.25l1.214 1.942a2.25 2.25 0 001.908 1.058h2.006c.776 0 1.497-.4 1.908-1.058l1.214-1.942M2.41 9h4.636a6.38 6.38 0 011.024-2.747M15.936 6.253a6.38 6.38 0 011.024 2.747h4.636M4.068 12.75h1.872l-1.872-1.872a9.753 9.753 0 01-1.066-1.878H1.5M19.932 12.75h-1.872l1.872-1.872c.404.577.76 1.196 1.066 1.878H22.5M2.25 15.75h3.75c.621 0 1.125-.504 1.125-1.125V12h-9.75v2.625c0 .621.504 1.125 1.125 1.125h.75M3.75 18h16.5M3.75 20.25h16.5" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 5.25a3 3 0 100-6 3 3 0 000 6z" />
+    </svg>
+);

@@ -4,6 +4,7 @@ import { NarrativeCard } from './NarrativeCard';
 import { SourcesUsed } from './SourcesUsed';
 import { SortAscendingIcon, SortDescendingIcon, SparklesIcon } from './icons/GeneralIcons';
 import { AnalysisInProgress } from './AnalysisInProgress';
+import { MultiLineChart } from './MultiLineChart';
 import clsx from 'clsx';
 
 interface DashboardProps {
@@ -69,11 +70,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ narratives, sources, isLoa
         }
 
         return (
-            <div className="space-y-6 animate-fade-in-up">
+            <div className="space-y-6 animate-fade-in-up pb-10">
                 <SourcesUsed sources={sources} />
+                
                 {narratives.length > 0 ? (
                     <>
-                        <div className="flex justify-between items-center">
+                        {/* Trend Comparison Chart */}
+                        <MultiLineChart narratives={narratives} />
+
+                        <div className="flex justify-between items-center mt-8 mb-4">
                             <h3 className="text-lg font-semibold text-text-primary">{narratives.length} Narratives Detected</h3>
                             <div className="flex items-center space-x-4 text-sm">
                                 <span className="text-text-secondary hidden sm:inline">Sort by:</span>

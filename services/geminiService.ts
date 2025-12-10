@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type, Chat } from "@google/genai";
-import { Narrative, Post, DMMIReport, DisarmAnalysis, CounterOpportunity, AnalysisInput, SearchSource } from '../types';
+import { Narrative, Post, DMMIReport, DisarmAnalysis, CounterOpportunity, AnalysisInput, SearchSource, Attribution, SimulationResult } from '../types';
 import { generateId } from "../utils/generateId";
 
 const API_KEY = process.env.API_KEY;
@@ -101,6 +101,16 @@ const enrichmentSchema = {
         },
         required: ["phase", "tactics", "techniques", "confidence"]
     },
+    attribution: {
+        type: Type.OBJECT,
+        properties: {
+             suspectedOrigin: { type: Type.STRING, description: "Hypothesized origin (e.g., 'State-affiliated media', 'Domestic political group', 'Organic user', 'Unknown')." },
+             keyAmplifiers: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of key amplifier types (e.g., 'Bot network', 'Influencers', 'Official accounts')." },
+             networkDynamics: { type: Type.STRING, description: "Description of spread pattern (e.g., 'Coordinated Inauthentic Behavior', 'Viral organic', 'Astroturfing')." },
+             confidenceScore: { type: Type.INTEGER, description: "Confidence in this attribution assessment (1-10)." }
+        },
+        required: ["suspectedOrigin", "keyAmplifiers", "networkDynamics", "confidenceScore"]
+    },
     counterOpportunities: {
       type: Type.ARRAY,
       items: {
@@ -117,7 +127,36 @@ const enrichmentSchema = {
         description: "An updated risk score from 1 (low) to 10 (high) based on the deep analysis of TTPs, veracity, and potential for harm."
     }
   },
-  required: ["dmmiReport", "disarmAnalysis", "counterOpportunities", "updatedRiskScore"]
+  required: ["dmmiReport", "disarmAnalysis", "attribution", "counterOpportunities", "updatedRiskScore"]
+};
+
+const wargameSchema = {
+    type: Type.OBJECT,
+    properties: {
+        turns: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    round: { type: Type.INTEGER },
+                    adversaryReaction: {
+                        type: Type.OBJECT,
+                        properties: {
+                            action: { type: Type.STRING, description: "The adversary's specific counter-move to our tactic." },
+                            likelyTTP: { type: Type.STRING, description: "The DISARM technique they will likely switch to." }
+                        },
+                         required: ["action", "likelyTTP"]
+                    },
+                    publicPerception: { type: Type.STRING, description: "How the general public or target audience reacts to this exchange." },
+                    projectedRiskChange: { type: Type.INTEGER, description: "Change in risk score (negative for reduction, positive for escalation)." }
+                },
+                required: ["round", "adversaryReaction", "publicPerception", "projectedRiskChange"]
+            }
+        },
+        finalOutcome: { type: Type.STRING, description: "The likely state of the narrative after 2 rounds of interaction." },
+        strategicAdjustment: { type: Type.STRING, description: "Advice for the Blue Team to improve their plan based on this simulation." }
+    },
+    required: ["turns", "finalOutcome", "strategicAdjustment"]
 };
 
 export const fetchRealtimePosts = async (inputs: AnalysisInput): Promise<{ posts: Post[], sources: SearchSource[] }> => {
@@ -251,9 +290,15 @@ export const enrichNarrative = async (narrative: Narrative, posts: Post[]): Prom
 
         2.  **DISARM Analysis:** Analyze TTPs using the DISARM Red framework (Phase, Tactics, Techniques).
 
-        3.  **Counter-Opportunities:** Propose three defensive counter-opportunities (DISARM Blue).
+        3.  **Attribution Intelligence:**
+            - Based on the content style, timing, and source types, hypothesize the **suspected origin** (e.g., State-affiliated media, Domestic political group, Organic user).
+            - Identify likely **key amplifiers** (e.g., Bot network, Influencers, Official accounts).
+            - Describe the **network dynamics** (e.g., Coordinated Inauthentic Behavior, Viral organic spread).
+            - Provide a **confidence score** (1-10) for this attribution assessment.
+
+        4.  **Counter-Opportunities:** Propose three defensive counter-opportunities (DISARM Blue).
         
-        4.  **Updated Risk Score:** An overall score (1-10) aligning with the Matrix Risk Score.
+        5.  **Updated Risk Score:** An overall score (1-10) aligning with the Matrix Risk Score.
     `;
 
     try {
@@ -271,6 +316,7 @@ export const enrichNarrative = async (narrative: Narrative, posts: Post[]): Prom
         const enrichmentData = extractJson(response.text) as {
             dmmiReport: DMMIReport;
             disarmAnalysis: DisarmAnalysis;
+            attribution: Attribution;
             counterOpportunities: CounterOpportunity[];
             updatedRiskScore: number;
         };
@@ -367,6 +413,52 @@ export const generateCounterActionPlan = async (narrative: Narrative, counter: C
     }
 };
 
+export const runWargameSimulation = async (narrative: Narrative, counter: CounterOpportunity, actionPlan: string): Promise<SimulationResult> => {
+    const model = 'gemini-2.5-pro';
+
+    const prompt = `
+        **SIMULATION PARAMETERS:**
+        We are conducting a "Red Team" wargame simulation.
+        
+        **BLUE TEAM (Defense):**
+        - Narrative to Counter: "${narrative.title}"
+        - Proposed Counter Tactic: "${counter.tactic}"
+        - Execution Plan Summary: "${actionPlan.substring(0, 500)}..."
+
+        **RED TEAM (Adversary):**
+        - Profile: ${narrative.attribution?.suspectedOrigin || "Hostile Actor"}
+        - Current TTPs: ${narrative.disarmAnalysis?.tactics.join(', ')}
+        - Goal: Maximize harm and veracity of the original narrative.
+
+        **TASK:**
+        Simulate 2 rounds of interaction.
+        1. Blue Team executes the plan.
+        2. Red Team reacts to the Blue Team's move.
+        3. Blue Team adjusts.
+        4. Red Team reacts again.
+
+        Analyze the likely public perception and risk score changes at each step.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+                thinkingConfig: { thinkingBudget: 32768 },
+                responseMimeType: "application/json",
+                responseSchema: wargameSchema,
+                temperature: 0.7,
+            }
+        });
+
+        return extractJson(response.text) as SimulationResult;
+    } catch (error) {
+        console.error("Error running wargame simulation:", error);
+        throw new Error("Failed to run wargame simulation.");
+    }
+};
+
 export const generateAllianceBrief = async (narrative: Narrative): Promise<string> => {
     const model = 'gemini-2.5-flash';
     const prompt = `
@@ -455,6 +547,7 @@ export const createNarrativeChat = (narrative: Narrative): Chat => {
         - **DMMI Cube Profile:** Veracity: ${narrative.dmmiReport?.veracityScore}/10, Harm: ${narrative.dmmiReport?.harmScore}/10, Probability: ${narrative.dmmiReport?.probabilityScore}/10.
         - **DMMI Classification:** ${narrative.dmmiReport?.classification} (${narrative.dmmiReport?.intent}, ${narrative.dmmiReport?.veracity})
         - **DISARM Strategy:** Phase: ${narrative.disarmAnalysis?.phase}, Tactics: ${narrative.disarmAnalysis?.tactics.join(', ')}
+        - **Attribution:** Suspected Origin: ${narrative.attribution?.suspectedOrigin}, Network Dynamics: ${narrative.attribution?.networkDynamics}
         - **Recent Posts Context:**
         ${postSummary}
 

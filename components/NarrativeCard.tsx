@@ -218,8 +218,9 @@ export const NarrativeCard: React.FC<NarrativeCardProps> = ({ narrative, onAssig
                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-background-card border border-border rounded shadow-lg text-xs text-text-secondary opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
                                         <p className="font-bold text-text-primary mb-1">Risk Score Calculation:</p>
                                         <ul className="list-disc list-inside space-y-1 opacity-80">
-                                            <li>Severity: Veracity × Intention to Harm</li>
-                                            <li>Probability: Likelihood of viral spread</li>
+                                            <li>DMMI: Harm Potential & Veracity</li>
+                                            <li>Virality & Probability</li>
+                                            <li>Sophistication of DISARM TTPs</li>
                                         </ul>
                                     </div>
                                 </div>
@@ -237,7 +238,7 @@ export const NarrativeCard: React.FC<NarrativeCardProps> = ({ narrative, onAssig
                             )}
                             <h3 className="text-base font-bold text-text-primary break-words leading-snug">{narrative.title}</h3>
                         </div>
-                        <div className="flex-shrink-0 pt-1">
+                        <div className="flex-shrink-0 pt-1" data-html2canvas-ignore>
                             <ProgressRing status={narrative.status} />
                         </div>
                     </div>
@@ -282,7 +283,10 @@ export const NarrativeCard: React.FC<NarrativeCardProps> = ({ narrative, onAssig
                         <div className="p-5 min-h-[140px] w-full bg-background-secondary/10">
                             {renderTabContent()}
                         </div>
-                        <div className="flex justify-between items-center gap-2 px-3 py-2 bg-background-secondary/30 rounded-b-xl border-t border-border w-full">
+                        <div 
+                            className="flex justify-between items-center gap-2 px-3 py-2 bg-background-secondary/30 rounded-b-xl border-t border-border w-full"
+                            data-html2canvas-ignore
+                        >
                             <div className="flex items-center gap-1 flex-wrap">
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); setIsBriefingModalOpen(true); }}

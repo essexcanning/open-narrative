@@ -59,6 +59,29 @@ export interface CounterOpportunity {
     rationale: string;
 }
 
+export interface Attribution {
+    suspectedOrigin: string;
+    keyAmplifiers: string[];
+    networkDynamics: string;
+    confidenceScore: number; // 1-10
+}
+
+export interface WargameTurn {
+    round: number;
+    adversaryReaction: {
+        action: string;
+        likelyTTP: string;
+    };
+    publicPerception: string;
+    projectedRiskChange: number; // e.g. -2 or +1
+}
+
+export interface SimulationResult {
+    turns: WargameTurn[];
+    finalOutcome: string;
+    strategicAdjustment: string;
+}
+
 export interface Narrative {
   id: string;
   title: string;
@@ -69,6 +92,7 @@ export interface Narrative {
   campaign?: string; // New field for campaign tracking
   dmmiReport?: DMMIReport;
   disarmAnalysis?: DisarmAnalysis;
+  attribution?: Attribution;
   counterOpportunities?: CounterOpportunity[];
   trendData?: { date: string; volume: number }[];
   posts?: Post[]; // Added to hold the raw posts for the new tab
